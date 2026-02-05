@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-import { Plus, Edit, Trash2, ArrowLeft, Check, X, Heart, ShoppingBag, Coins, Calendar, MapPin, Ticket, Gift, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, ArrowLeft, Check, X, Heart, ShoppingBag, Coins, Calendar, MapPin, Ticket, Gift, AlertCircle, Plane, Map, Navigation, ArrowDown, Clock, Train, Bus, Coffee, Info, ChevronUp, ChevronDown } from 'lucide-react';
 
 // --- UI Components (Simplified shadcn/ui style) ---
 
@@ -151,16 +150,36 @@ function App() {
       createdAt: new Date().toISOString()
     }
   ]);
+  const [trips, setTrips] = useState([
+    {
+      id: "trip_1",
+      oshiId: "oshi_1",
+      name: "2026 夏の全国ツアー 東京公演",
+      date: "2026-08-10",
+      destinations: [
+        { id: "dest_1", name: "東京駅", address: "東京都千代田区", arrivalTime: "10:00", purpose: "集合", memo: "新幹線改札口付近", surroundingInfo: "駅ナカにカフェ多数あり", travelTime: "", transportFee: 0 },
+        { id: "dest_2", name: "東京ドーム", address: "東京都文京区", arrivalTime: "14:00", purpose: "イベント", memo: "17時開演、物販12時から", surroundingInfo: "ラクーアで時間つぶせる", travelTime: "電車30分", transportFee: 200 },
+        { id: "dest_3", name: "ホテルメトロポリタン", address: "東京都豊島区", arrivalTime: "21:30", purpose: "宿泊", memo: "チェックインは24時まで", surroundingInfo: "駅近で便利", travelTime: "電車20分", transportFee: 170 }
+      ],
+      transportationCost: 370,
+      totalBudget: 45000,
+      completed: false,
+      createdAt: new Date().toISOString()
+    }
+  ]);
 
-  const [currentView, setCurrentView] = useState('home'); // 'home', 'oshi-detail', 'oshi-form', 'goods-form', 'event-form', 'benefit-form'
+  const [currentView, setCurrentView] = useState('home'); // 'home', 'oshi-detail', 'oshi-form', 'goods-form', 'event-form', 'benefit-form', 'trip-form', 'trip-detail'
   const [selectedOshiId, setSelectedOshiId] = useState(null);
-  const [editingItem, setEditingItem] = useState(null); // For both Oshi and Goods editing
+  const [selectedTripId, setSelectedTripId] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
 
   // Data helpers
   const getOshi = (id) => oshis.find(o => o.id === id);
   const getOshiGoods = (oshiId) => goods.filter(g => g.oshiId === oshiId);
   const getOshiEvents = (oshiId) => events.filter(e => e.oshiId === oshiId);
   const getOshiBenefits = (oshiId) => benefits.filter(b => b.oshiId === oshiId);
+  const getOshiTrips = (oshiId) => trips.filter(t => t.oshiId === oshiId);
+  const getTrip = (id) => trips.find(t => t.id === id);
 
   // Handlers - Oshi
   const saveOshi = (data) => {
@@ -185,6 +204,7 @@ function App() {
       setGoods(goods.filter(g => g.oshiId !== id));
       setEvents(events.filter(e => e.oshiId !== id));
       setBenefits(benefits.filter(b => b.oshiId !== id));
+      setTrips(trips.filter(t => t.oshiId !== id));
       setCurrentView('home');
     }
   };
@@ -331,6 +351,36 @@ function App() {
     setBenefits(benefits.map(b => b.id === id ? { ...b, obtained: !b.obtained } : b));
   };
 
+  // Handlers - Trips
+  const saveTrip = (data) => {
+    if (editingItem) {
+      setTrips(trips.map(t => t.id === editingItem.id ? { ...t, ...data } : t));
+    } else {
+      const newTrip = {
+        id: `trip_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        oshiId: selectedOshiId,
+        ...data,
+        completed: false,
+        createdAt: new Date().toISOString()
+      };
+      setTrips([...trips, newTrip]);
+    }
+    setCurrentView('oshi-detail');
+    setEditingItem(null);
+  };
+
+  const deleteTrip = (id) => {
+    if (window.confirm('この遠征プランを削除しますか？')) {
+      setTrips(trips.filter(t => t.id !== id));
+      if (selectedTripId === id) setSelectedTripId(null);
+      setCurrentView('oshi-detail');
+    }
+  };
+
+  const toggleTripCompletion = (id) => {
+    setTrips(trips.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+  };
+
   // Navigation
   // eslint-disable-next-line no-unused-vars
   const goHome = () => {
@@ -383,6 +433,16 @@ function App() {
     setEditingItem(item);
     setCurrentView('benefit-form');
   }
+
+  const goTripForm = (item = null) => {
+    setEditingItem(item);
+    setCurrentView('trip-form');
+  };
+
+  const goTripDetail = (id) => {
+    setSelectedTripId(id);
+    setCurrentView('trip-detail');
+  };
 
 
   // --- Sub-Components (Views) ---
@@ -519,6 +579,34 @@ function App() {
                 )}
               </div>
             </Card>
+
+            {/* Upcoming Trips */}
+            <Card className="p-4">
+              <h3 className="text-md font-bold mb-3 flex items-center text-gray-700"><Plane className="w-4 h-4 mr-2" /> 今後の遠征</h3>
+              <div className="space-y-3">
+                {trips
+                  .filter(t => !t.completed && new Date(t.date) >= new Date())
+                  .sort((a, b) => new Date(a.date) - new Date(b.date))
+                  .slice(0, 3)
+                  .map(trip => {
+                    const oshiName = getOshi(trip.oshiId)?.name || '不明';
+                    return (
+                      <div key={trip.id} className="text-sm border-b last:border-0 pb-2 cursor-pointer hover:bg-gray-50 p-1 rounded" onClick={() => { setSelectedOshiId(trip.oshiId); goTripDetail(trip.id); }}>
+                        <div className="flex justify-between text-gray-500 text-xs mb-0.5">
+                          <span>{trip.date}</span>
+                          <span className="text-pink-500 font-medium">{oshiName}</span>
+                        </div>
+                        <div className="font-medium">{trip.name}</div>
+                        <div className="text-xs text-gray-400">{trip.destinations.length}箇所の目的地</div>
+                      </div>
+                    );
+                  })
+                }
+                {trips.filter(t => !t.completed && new Date(t.date) >= new Date()).length === 0 && (
+                  <div className="text-center text-gray-400 text-sm py-4">予定されている遠征はありません</div>
+                )}
+              </div>
+            </Card>
           </div>
         </div>
       </div>
@@ -530,9 +618,10 @@ function App() {
     const oshiGoods = getOshiGoods(selectedOshiId);
     const oshiEvents = getOshiEvents(selectedOshiId);
     const oshiBenefits = getOshiBenefits(selectedOshiId);
+    const oshiTrips = getOshiTrips(selectedOshiId);
 
     // UI State for Tabs
-    const [activeTab, setActiveTab] = useState('goods'); // 'goods' | 'events' | 'benefits'
+    const [activeTab, setActiveTab] = useState('goods'); // 'goods' | 'events' | 'benefits' | 'trips'
 
     // Filters state
     const [filterStatus, setFilterStatus] = useState('all'); // all, bought, not-bought
@@ -607,18 +696,22 @@ function App() {
 
         {/* Tabs Navigation */}
         <Tabs>
-          <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="goods" activeValue={activeTab} onClick={setActiveTab}>
-              <ShoppingBag className="w-4 h-4 mr-2" /> グッズ
-              <span className="ml-2 text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full">{oshiGoods.length}</span>
+          <TabsList className="grid w-full grid-cols-4 mb-4 h-auto flex-wrap">
+            <TabsTrigger value="goods" activeValue={activeTab} onClick={setActiveTab} className="py-2">
+              <ShoppingBag className="w-4 h-4 md:mr-2" /> <span className="hidden md:inline">グッズ</span>
+              <span className="ml-1 md:ml-2 text-[10px] md:text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full">{oshiGoods.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="events" activeValue={activeTab} onClick={setActiveTab}>
-              <Calendar className="w-4 h-4 mr-2" /> イベント
-              <span className="ml-2 text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full">{oshiEvents.length}</span>
+            <TabsTrigger value="events" activeValue={activeTab} onClick={setActiveTab} className="py-2">
+              <Calendar className="w-4 h-4 md:mr-2" /> <span className="hidden md:inline">イベント</span>
+              <span className="ml-1 md:ml-2 text-[10px] md:text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full">{oshiEvents.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="benefits" activeValue={activeTab} onClick={setActiveTab}>
-              <Gift className="w-4 h-4 mr-2" /> 特典
-              <span className="ml-2 text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full">{oshiBenefits.length}</span>
+            <TabsTrigger value="benefits" activeValue={activeTab} onClick={setActiveTab} className="py-2">
+              <Gift className="w-4 h-4 md:mr-2" /> <span className="hidden md:inline">特典</span>
+              <span className="ml-1 md:ml-2 text-[10px] md:text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full">{oshiBenefits.length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="trips" activeValue={activeTab} onClick={setActiveTab} className="py-2">
+              <Map className="w-4 h-4 md:mr-2" /> <span className="hidden md:inline">遠征</span>
+              <span className="ml-1 md:ml-2 text-[10px] md:text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full">{oshiTrips.length}</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -770,7 +863,43 @@ function App() {
             </div>
           )
         }
-      </div >
+
+        {/* Trips Section */}
+        {activeTab === 'trips' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold flex items-center"><Map className="w-5 h-5 mr-2" /> 遠征プランリスト</h3>
+              <Button onClick={() => goTripForm()} size="sm"><Plus className="w-4 h-4 mr-1" /> プラン作成</Button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              {oshiTrips.length === 0 && (
+                <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200 col-span-full">
+                  遠征プランは登録されていません
+                </div>
+              )}
+              {oshiTrips.sort((a, b) => new Date(a.date) - new Date(b.date)).map(trip => (
+                <Card key={trip.id} className={`p-4 hover:border-pink-300 transition-colors ${trip.completed ? 'opacity-70 bg-gray-50' : ''}`}>
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold text-gray-500">{trip.date}</span>
+                        {trip.completed && <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full font-bold">完了</span>}
+                      </div>
+                      <h4 className="font-bold text-lg text-gray-800">{trip.name}</h4>
+                    </div>
+                    <Button variant="ghost" size="sm" className="text-pink-500 font-bold" onClick={() => goTripDetail(trip.id)}>詳細を見る</Button>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <span className="flex items-center"><MapPin className="w-3.5 h-3.5 mr-1" />{trip.destinations.length}箇所</span>
+                    <span className="flex items-center"><Coins className="w-3.5 h-3.5 mr-1" />¥{trip.totalBudget.toLocaleString()}</span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -1021,6 +1150,250 @@ function App() {
     );
   };
 
+  const TripForm = () => {
+    const [formData, setFormData] = useState(editingItem || {
+      name: '',
+      date: '',
+      totalBudget: '',
+      destinations: [
+        { id: '1', name: '', address: '', arrivalTime: '', purpose: 'イベント', memo: '', surroundingInfo: '', travelTime: '', transportFee: 0 }
+      ]
+    });
+
+    const updateTripValue = (key, val) => setFormData({ ...formData, [key]: val });
+
+    const updateDest = (id, key, val) => {
+      setFormData({
+        ...formData,
+        destinations: formData.destinations.map(d => d.id === id ? { ...d, [key]: val } : d)
+      });
+    };
+
+    const addDest = () => {
+      const newId = Date.now().toString();
+      setFormData({
+        ...formData,
+        destinations: [...formData.destinations, { id: newId, name: '', address: '', arrivalTime: '', purpose: 'イベント', memo: '', surroundingInfo: '', travelTime: '', transportFee: 0 }]
+      });
+    };
+
+    const removeDest = (id) => {
+      if (formData.destinations.length <= 1) return;
+      setFormData({
+        ...formData,
+        destinations: formData.destinations.filter(d => d.id !== id)
+      });
+    };
+
+    const moveDest = (index, direction) => {
+      const newDests = [...formData.destinations];
+      const target = index + direction;
+      if (target < 0 || target >= newDests.length) return;
+      [newDests[index], newDests[target]] = [newDests[target], newDests[index]];
+      setFormData({ ...formData, destinations: newDests });
+    };
+
+    const handleSubmit = () => {
+      if (!formData.name) return alert('プラン名を入力してください');
+      if (!formData.date) return alert('日付を入力してください');
+
+      const transCost = formData.destinations.reduce((sum, d) => sum + (Number(d.transportFee) || 0), 0);
+
+      saveTrip({
+        ...formData,
+        totalBudget: Number(formData.totalBudget) || 0,
+        transportationCost: transCost
+      });
+    };
+
+    return (
+      <div className="max-w-2xl mx-auto space-y-6 pb-20">
+        <div className="flex items-center space-x-2">
+          <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshi-detail')}><X className="w-5 h-5" /></Button>
+          <h1 className="text-xl font-bold">{editingItem ? '遠征プランを編集' : '遠征プランを作成'}</h1>
+        </div>
+
+        <Card className="p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>プラン名 <span className="text-red-500">*</span></Label>
+              <Input value={formData.name} onChange={e => updateTripValue('name', e.target.value)} placeholder="例：東京遠征、〇〇ライブ遠征" />
+            </div>
+            <div className="space-y-2">
+              <Label>日付 <span className="text-red-500">*</span></Label>
+              <Input type="date" value={formData.date} onChange={e => updateTripValue('date', e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>総予算 (交通費込・任意)</Label>
+              <Input type="number" value={formData.totalBudget} onChange={e => updateTripValue('totalBudget', e.target.value)} placeholder="50000" />
+            </div>
+          </div>
+        </Card>
+
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-bold flex items-center"><Navigation className="w-5 h-5 mr-2" /> 目的地設定</h2>
+          </div>
+
+          {formData.destinations.map((dest, idx) => (
+            <Card key={dest.id} className="p-4 relative border-l-4 border-l-pink-500">
+              <div className="absolute right-2 top-2 flex gap-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => moveDest(idx, -1)} disabled={idx === 0}><ChevronUp className="w-4 h-4" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => moveDest(idx, 1)} disabled={idx === formData.destinations.length - 1}><ChevronDown className="w-4 h-4" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => removeDest(dest.id)}><Trash2 className="w-4 h-4" /></Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                <div className="space-y-2 col-span-full md:col-span-1">
+                  <Label>場所名 <span className="text-red-500">*</span></Label>
+                  <Input value={dest.name} onChange={e => updateDest(dest.id, 'name', e.target.value)} placeholder="会場名、駅名など" />
+                </div>
+                <div className="space-y-2">
+                  <Label>到着予定時刻</Label>
+                  <Input type="time" value={dest.arrivalTime} onChange={e => updateDest(dest.id, 'arrivalTime', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>目的</Label>
+                  <Select
+                    value={dest.purpose}
+                    onChange={e => updateDest(dest.id, 'purpose', e.target.value)}
+                    options={[
+                      { label: 'イベント', value: 'イベント' },
+                      { label: '店舗特典', value: '店舗特典' },
+                      { label: '集合', value: '集合' },
+                      { label: '宿泊', value: '宿泊' },
+                      { label: '観光', value: '観光' },
+                      { label: 'その他', value: 'その他' },
+                    ]}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>交通手段・時間</Label>
+                  <Input value={dest.travelTime} onChange={e => updateDest(dest.id, 'travelTime', e.target.value)} placeholder="例：電車30分" />
+                </div>
+                <div className="space-y-2">
+                  <Label>交通費 (円)</Label>
+                  <Input type="number" value={dest.transportFee} onChange={e => updateDest(dest.id, 'transportFee', e.target.value)} />
+                </div>
+                <div className="col-span-full space-y-2">
+                  <Label>メモ・周辺情報</Label>
+                  <Textarea value={dest.memo} onChange={e => updateDest(dest.id, 'memo', e.target.value)} placeholder="持ち物、待ち時間の過ごし方など" />
+                </div>
+              </div>
+            </Card>
+          ))}
+
+          <Button variant="outline" className="w-full border-dashed py-6" onClick={addDest}>
+            <Plus className="w-4 h-4 mr-2" /> 目的地を追加
+          </Button>
+        </div>
+
+        <div className="flex gap-4">
+          <Button variant="outline" className="flex-1" onClick={() => setCurrentView('oshi-detail')}>キャンセル</Button>
+          <Button className="flex-1" onClick={handleSubmit}>プランを保存</Button>
+        </div>
+      </div>
+    );
+  };
+
+  const TripDetailView = () => {
+    const trip = getTrip(selectedTripId);
+    if (!trip) return <div>Trip not found</div>;
+
+    const totalTrans = trip.destinations.reduce((sum, d) => sum + (Number(d.transportFee) || 0), 0);
+
+    return (
+      <div className="max-w-2xl mx-auto space-y-6 pb-20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshi-detail')}><ArrowLeft className="w-5 h-5" /></Button>
+            <h1 className="text-xl font-bold">{trip.name}</h1>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => goTripForm(trip)}><Edit className="w-4 h-4" /></Button>
+            <Button variant="destructive" size="sm" onClick={() => deleteTrip(trip.id)}><Trash2 className="w-4 h-4" /></Button>
+          </div>
+        </div>
+
+        <Card className="p-4 bg-gradient-to-r from-pink-50 to-white border-pink-100 flex justify-between items-center">
+          <div>
+            <p className="text-xs text-gray-500 mb-1">遠征日: {trip.date}</p>
+            <p className="text-sm font-bold text-pink-600 bg-white px-2 py-0.5 rounded border border-pink-100 inline-block">総予算: ¥{trip.totalBudget.toLocaleString()}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-gray-400">合計交通費</p>
+            <p className="text-lg font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">¥{totalTrans.toLocaleString()}</p>
+          </div>
+        </Card>
+
+        {/* Timeline View */}
+        <div className="space-y-0 px-2 relative">
+          <div className="absolute left-7 top-4 bottom-4 w-0.5 bg-gray-200 z-0"></div>
+
+          {trip.destinations.map((dest, idx) => {
+            const nextDest = trip.destinations[idx + 1];
+            const hasGap = dest.arrivalTime && nextDest && nextDest.arrivalTime;
+            let gapMinutes = 0;
+
+            if (hasGap) {
+              const [h1, m1] = dest.arrivalTime.split(':').map(Number);
+              const [h2, m2] = nextDest.arrivalTime.split(':').map(Number);
+              gapMinutes = (h2 * 60 + m2) - (h1 * 60 + m1);
+            }
+
+            return (
+              <React.Fragment key={dest.id}>
+                <div className="relative z-10 flex items-start gap-4 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-pink-500 text-white flex items-center justify-center font-bold shadow-md shrink-0">
+                    {idx + 1}
+                  </div>
+                  <Card className="flex-1 p-4 shadow-sm border-gray-100">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center text-pink-500 font-bold">
+                        <Clock className="w-4 h-4 mr-1" /> {dest.arrivalTime || '--:--'}
+                      </div>
+                      <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{dest.purpose}</span>
+                    </div>
+                    <h4 className="font-bold text-lg mb-1">{dest.name}</h4>
+                    {dest.address && <p className="text-xs text-gray-500 mb-2 flex items-center"><MapPin className="w-3 h-3 mr-1" /> {dest.address}</p>}
+
+                    {dest.memo && (
+                      <div className="bg-gray-50 p-2 rounded text-sm text-gray-700 mt-2 flex items-start">
+                        <Info className="w-4 h-4 mr-2 text-gray-400 shrink-0 mt-0.5" />
+                        <div>{dest.memo}</div>
+                      </div>
+                    )}
+                  </Card>
+                </div>
+
+                {nextDest && (
+                  <div className="relative z-10 pl-4 py-4 flex flex-col items-center ml-[20px] mb-4">
+                    <div className="bg-green-50 text-green-700 px-3 py-1 rounded-md text-xs font-bold border border-green-100 flex items-center mb-2">
+                      <Navigation className="w-3 h-3 mr-1" /> {dest.travelTime || '移動'} (¥{dest.transportFee || 0})
+                    </div>
+                    <ArrowDown className="w-6 h-6 text-gray-300" />
+
+                    {gapMinutes > 60 && (
+                      <div className="mt-2 bg-yellow-50 text-yellow-800 p-2 rounded-md text-xs border border-yellow-100 flex items-center">
+                        <Clock className="w-3 h-3 mr-1" /> {Math.floor(gapMinutes / 60)}時間{gapMinutes % 60}分の空き時間があります。周辺情報をチェック！
+                      </div>
+                    )}
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        <div className="pt-4">
+          <Button className={`w-full ${trip.completed ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`} onClick={() => toggleTripCompletion(trip.id)}>
+            {trip.completed ? '完了済みを取り消す' : 'この遠征を完了済みにする'}
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   // --- Main Render ---
 
   return (
@@ -1032,6 +1405,8 @@ function App() {
         {currentView === 'goods-form' && <GoodsForm />}
         {currentView === 'event-form' && <EventForm />}
         {currentView === 'benefit-form' && <BenefitForm />}
+        {currentView === 'trip-form' && <TripForm />}
+        {currentView === 'trip-detail' && <TripDetailView />}
       </div>
     </div>
   );
