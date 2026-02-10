@@ -1,26 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, ArrowLeft, Check, X, Heart, ShoppingBag, Coins, Calendar, MapPin, Ticket, Gift, AlertCircle, Plane, Map, Navigation, ArrowDown, Clock, Train, Bus, Coffee, Info, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Edit, Trash2, ArrowLeft, Check, X, Heart, ShoppingBag, Coins, Calendar, MapPin, Ticket, Gift, AlertCircle, Plane, Map, Navigation, ArrowDown, Clock, Train, Bus, Coffee, Info, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
 
 // --- UI Components (Simplified shadcn/ui style) ---
 
 const Button = ({ children, variant = "primary", size = "default", className = "", ...props }) => {
-  const baseStyles = "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
   const variants = {
-    primary: "bg-pink-500 text-white hover:bg-pink-600 shadow-sm",
-    secondary: "bg-purple-500 text-white hover:bg-purple-600 shadow-sm",
-    outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-    ghost: "hover:bg-accent hover:text-accent-foreground",
-    destructive: "bg-red-500 text-white hover:bg-red-600 shadow-sm",
-    link: "text-primary underline-offset-4 hover:underline",
+    primary: "bg-gradient-to-r from-pink-500 to-orange-400 hover:from-pink-600 hover:to-orange-500 text-white shadow-md hover:shadow-lg hover:shadow-pink-300/50 hover:-translate-y-0.5",
+    secondary: "bg-white border-2 border-pink-300 text-pink-600 hover:bg-pink-50 font-semibold",
+    outline: "bg-white/90 border border-pink-200 text-gray-700 hover:bg-pink-50 hover:border-pink-300",
+    ghost: "hover:bg-pink-50 text-pink-600 transition-colors",
+    destructive: "bg-gradient-to-r from-red-500 to-red-600 text-white shadow-md hover:shadow-lg",
   };
   const sizes = {
     default: "h-10 px-4 py-2",
-    sm: "h-9 rounded-md px-3",
-    lg: "h-11 rounded-md px-8",
+    sm: "h-8 px-3 text-xs",
+    lg: "h-12 px-8 text-lg",
     icon: "h-10 w-10",
   };
   return (
-    <button className={`${baseStyles} ${variants[variant] || variants.primary} ${sizes[size] || sizes.default} ${className}`} {...props}>
+    <button
+      className={`inline-flex items-center justify-center rounded-xl font-bold transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:pointer-events-none ${variants[variant]} ${sizes[size]} ${className}`}
+      {...props}
+    >
       {children}
     </button>
   );
@@ -37,7 +38,7 @@ const Label = ({ children, className = "", ...props }) => (
 );
 
 const Card = ({ children, className = "", ...props }) => (
-  <div className={`rounded-xl border bg-card text-card-foreground shadow-sm bg-white ${className}`} {...props}>
+  <div className={`bg-white/90 backdrop-blur-sm rounded-2xl border border-pink-100 shadow-lg transition-all duration-300 hover:shadow-xl ${className}`} {...props}>
     {children}
   </div>
 );
@@ -84,11 +85,127 @@ const TabsTrigger = ({ value, activeValue, onClick, children, className = "" }) 
   </button>
 );
 
+// --- AI Utility Functions ---
+
+/**
+ * Parse JSON from AI response with multiple fallback patterns
+ */
+const parseAiJsonResponse = (text) => {
+  if (!text) throw new Error('AI応答が空です');
+
+  // Try multiple patterns
+  const patterns = [
+    /```json\s*([\s\S]*?)\s*```/,  // ```json ... ```
+    /```\s*([\s\S]*?)\s*```/,       // ``` ... ```
+    /(\{[\s\S]*\})/,                // { ... }
+    /(\[[\s\S]*\])/                 // [ ... ]
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match) {
+      try {
+        const jsonStr = match[1] || match[0];
+        return JSON.parse(jsonStr);
+      } catch (e) {
+        continue;
+      }
+    }
+  }
+
+  throw new Error('AIの応答からJSONを抽出できませんでした。もう一度お試しください。');
+};
+
+/**
+ * Handle API errors with user-friendly messages
+ */
+const handleApiError = (error, response) => {
+  console.error('API Error:', error, response);
+
+  if (!response) {
+    return {
+      title: 'ネットワークエラー',
+      message: 'インターネット接続を確認してください。',
+      canRetry: true
+    };
+  }
+
+  switch (response.status) {
+    case 401:
+      return {
+        title: 'APIキーエラー',
+        message: 'APIキーが無効です。ブラウザのコンソールで以下を実行してください:\nlocalStorage.setItem("anthropic_api_key", "あなたのAPIキー")',
+        canRetry: false
+      };
+
+    case 429:
+      return {
+        title: 'レート制限',
+        message: 'APIの使用制限に達しました。しばらく待ってから再試行してください。',
+        canRetry: true
+      };
+
+    case 500:
+    case 502:
+    case 503:
+      return {
+        title: 'サーバーエラー',
+        message: 'Anthropicのサーバーで一時的な問題が発生しています。しばらく待ってから再試行してください。',
+        canRetry: true
+      };
+
+    default:
+      return {
+        title: 'エラー',
+        message: error.message || '予期しないエラーが発生しました。',
+        canRetry: true
+      };
+  }
+};
+
+/**
+ * Validate data availability for AI analysis
+ */
+const validateDataForAnalysis = (oshi, actions, basicInfo) => {
+  const warnings = [];
+
+  if (!actions || actions.length === 0) {
+    warnings.push('⚠️ 感情記録がありません。まず推しの行動を記録してください。');
+  } else if (actions.length < 3) {
+    warnings.push('ℹ️ 記録が少なめです。3件以上あると、より正確な分析が可能です。');
+  }
+
+  if (!basicInfo || Object.keys(basicInfo.answers || {}).length < 5) {
+    warnings.push('ℹ️ 基本情報が不足しています。一問一答を完了させると精度が向上します。');
+  }
+
+  return warnings;
+};
+
 // --- Application Component ---
 
 function App() {
   // State
-  const [oshis, setOshis] = useState([
+  // State Loader
+  const loadData = (key, defaultValue) => {
+    const saved = localStorage.getItem(`oshikatsu_${key}`);
+    if (!saved) return defaultValue;
+
+    let parsed = JSON.parse(saved);
+
+    // Migration for feeling values
+    if (key === 'actions' && Array.isArray(parsed)) {
+      parsed = parsed.map(action => ({
+        ...action,
+        feeling: action.feeling === 'agree' ? 'positive' : (action.feeling === 'disagree' ? 'negative' : action.feeling)
+      }));
+    }
+
+    return parsed;
+  };
+
+  // State
+  const [oshis, setOshis] = useState(() => loadData('oshis', [
     {
       id: "oshi_1",
       name: "サンプル推し",
@@ -97,8 +214,8 @@ function App() {
       spent: 12000,
       createdAt: new Date().toISOString()
     }
-  ]);
-  const [goods, setGoods] = useState([
+  ]));
+  const [goods, setGoods] = useState(() => loadData('goods', [
     {
       id: "goods_1",
       oshiId: "oshi_1",
@@ -121,8 +238,8 @@ function App() {
       purchased: false,
       createdAt: new Date().toISOString()
     }
-  ]);
-  const [events, setEvents] = useState([
+  ]));
+  const [events, setEvents] = useState(() => loadData('events', [
     {
       id: "event_1",
       oshiId: "oshi_1",
@@ -136,8 +253,8 @@ function App() {
       actualCost: 0,
       createdAt: new Date().toISOString()
     }
-  ]);
-  const [benefits, setBenefits] = useState([
+  ]));
+  const [benefits, setBenefits] = useState(() => loadData('benefits', [
     {
       id: "benefit_1",
       oshiId: "oshi_1",
@@ -149,8 +266,8 @@ function App() {
       memo: "対象商品3000円以上購入",
       createdAt: new Date().toISOString()
     }
-  ]);
-  const [trips, setTrips] = useState([
+  ]));
+  const [trips, setTrips] = useState(() => loadData('trips', [
     {
       id: "trip_1",
       oshiId: "oshi_1",
@@ -166,12 +283,127 @@ function App() {
       completed: false,
       createdAt: new Date().toISOString()
     }
-  ]);
+  ]));
+  const [actions, setActions] = useState(() => loadData('actions', [
+    {
+      id: "action_1",
+      oshiId: "oshi_1",
+      date: "2026-02-01",
+      action: "配信で視聴者の悩み相談に真剣に乗っていた",
+      context: "毎週の定期生放送にて",
+      feeling: "positive",
+      reason: "推しの誠実さが伝わってきたから",
+      tags: ["優しい", "努力家"],
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: "action_2",
+      oshiId: "oshi_1",
+      date: "2026-02-03",
+      action: "SNSでファンを煽るような過激な発言をした",
+      context: "深夜のX(旧Twitter)の投稿",
+      feeling: "negative",
+      reason: "もっと穏やかな推しでいてほしいと感じたから",
+      tags: ["ツンデレ"],
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: "action_3",
+      oshiId: "oshi_1",
+      date: "2026-02-05",
+      action: "ライブのMCで「みんなの応援が力になる」と涙ぐんでいた",
+      context: "冬のソロコンサートMC",
+      feeling: "positive",
+      reason: "ファンの存在を大切に思ってくれているのが伝わった",
+      tags: ["繊細", "ファン想い"],
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: "action_4",
+      oshiId: "oshi_1",
+      date: "2026-02-06",
+      action: "練習動画で深夜まで一人でダンスの確認をしていた",
+      context: "公式YouTube의 密着動画",
+      feeling: "positive",
+      reason: "影の努力を惜しまない姿勢に改めて惚れ直した",
+      tags: ["努力家", "かっこいい"],
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: "action_5",
+      oshiId: "oshi_1",
+      date: "2026-02-07",
+      action: "バラエティ番組で天然な発言を連発していた",
+      context: "ゴールデンタイムの地上波番組",
+      feeling: "positive",
+      reason: "ギャップがあって非常に可愛らしかった",
+      tags: ["天然", "面白い"],
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: "action_6",
+      oshiId: "oshi_1",
+      date: "2026-02-08",
+      action: "コラボグッズのデザインが予想外の方向性だった",
+      context: "アパレルブランドとのコラボ発表",
+      feeling: "negative",
+      reason: "推しの本来のイメージとは少し違う気がした",
+      tags: ["面白い"],
+      createdAt: new Date().toISOString()
+    }
+  ]));
+  const [analyses, setAnalyses] = useState(() => loadData('analyses', []));
+  const [basicInfos, setBasicInfos] = useState(() => loadData('basicInfos', [
+    {
+      oshiId: "oshi_1",
+      answers: {
+        q1_name: "星野さくら（さくちゃん）",
+        q2_activity: "ソロアイドル、モデル",
+        q3_birthday: "2005年4月12日",
+        q4_visual: "ポニーテール、158cm、透明感のある雰囲気",
+        q5_personality: "誠実、天然、努力家",
+        q6_anniversary: "2024年の夏フェス",
+        q7_discovery: "SNSで流れてきたダンス動画",
+        q8_works: "1stシングル「サクラ・スマイル」",
+        q9_sns: "https://example.com/oshi_sns",
+        q10_catchphrase: "世界を優しく照らす、唯一無二の桜色"
+      },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  ]));
+  const [chatMessages, setChatMessages] = useState(() => loadData('chatMessages', []));
 
-  const [currentView, setCurrentView] = useState('home'); // 'home', 'oshi-detail', 'oshi-form', 'goods-form', 'event-form', 'benefit-form', 'trip-form', 'trip-detail'
+  // Persistence Sync
+  useEffect(() => {
+    localStorage.setItem('oshikatsu_oshis', JSON.stringify(oshis));
+    localStorage.setItem('oshikatsu_goods', JSON.stringify(goods));
+    localStorage.setItem('oshikatsu_events', JSON.stringify(events));
+    localStorage.setItem('oshikatsu_benefits', JSON.stringify(benefits));
+    localStorage.setItem('oshikatsu_trips', JSON.stringify(trips));
+    localStorage.setItem('oshikatsu_actions', JSON.stringify(actions));
+    localStorage.setItem('oshikatsu_analyses', JSON.stringify(analyses));
+    localStorage.setItem('oshikatsu_basicInfos', JSON.stringify(basicInfos));
+    localStorage.setItem('oshikatsu_chatMessages', JSON.stringify(chatMessages));
+  }, [oshis, goods, events, benefits, trips, actions, analyses, basicInfos, chatMessages]);
+
+  const [currentView, setCurrentView] = useState('home'); // 'home', 'management-dashboard', 'oshigotari-select', 'oshigotari-main', 'oshi-detail', 'oshi-form', 'goods-form', 'event-form', 'benefit-form', 'trip-form', 'trip-detail', 'action-form', 'analysis-result'
   const [selectedOshiId, setSelectedOshiId] = useState(null);
   const [selectedTripId, setSelectedTripId] = useState(null);
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState(null);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+
+  // UI Sub-state
+  const [oshiDetailActiveTab, setOshiDetailActiveTab] = useState('goods');
+  const [oshigotariMainActiveTab, setOshigotariMainActiveTab] = useState('basic');
+  const [goodsFilterStatus, setGoodsFilterStatus] = useState('all');
+  const [goodsSortType, setGoodsSortType] = useState('priority');
+  const [actionsFilterStatus, setActionsFilterStatus] = useState('all');
+  const [showGlobalAnalysis, setShowGlobalAnalysis] = useState(false);
+  const [globalAnalysisData, setGlobalAnalysisData] = useState([]);
+  const [aiUsageCount, setAiUsageCount] = useState(0);
 
   // Data helpers
   const getOshi = (id) => oshis.find(o => o.id === id);
@@ -180,6 +412,9 @@ function App() {
   const getOshiBenefits = (oshiId) => benefits.filter(b => b.oshiId === oshiId);
   const getOshiTrips = (oshiId) => trips.filter(t => t.oshiId === oshiId);
   const getTrip = (id) => trips.find(t => t.id === id);
+  const getOshiActions = (oshiId) => actions.filter(a => a.oshiId === oshiId);
+  const getOshiAnalyses = (oshiId) => analyses.filter(a => a.oshiId === oshiId);
+  const getAnalysis = (id) => analyses.find(a => a.id === id);
 
   // Handlers - Oshi
   const saveOshi = (data) => {
@@ -381,6 +616,121 @@ function App() {
     setTrips(trips.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
   };
 
+  // Handlers - Actions
+  const saveAction = (data) => {
+    if (editingItem) {
+      setActions(actions.map(a => a.id === editingItem.id ? { ...a, ...data } : a));
+    } else {
+      const newAction = {
+        id: `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        oshiId: selectedOshiId,
+        ...data,
+        createdAt: new Date().toISOString()
+      };
+      setActions([...actions, newAction]);
+    }
+    setCurrentView('oshi-detail');
+    setEditingItem(null);
+  };
+
+  const deleteAction = (id) => {
+    if (window.confirm('この記録を削除しますか？')) {
+      setActions(actions.filter(a => a.id !== id));
+    }
+  };
+
+  // Handlers - Analysis
+  const saveAnalysis = (data) => {
+    const newAnalysis = {
+      id: `analysis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      oshiId: selectedOshiId,
+      date: new Date().toISOString().split('T')[0],
+      ...data,
+      createdAt: new Date().toISOString()
+    };
+    setAnalyses([...analyses, newAnalysis]);
+    setSelectedAnalysisId(newAnalysis.id);
+    setCurrentView('analysis-result');
+  };
+
+  const deleteAnalysis = (id) => {
+    if (window.confirm('この分析履歴を削除しますか？')) {
+      setAnalyses(analyses.filter(a => a.id !== id));
+      if (selectedAnalysisId === id) {
+        setSelectedAnalysisId(null);
+        setCurrentView('oshi-detail');
+      }
+    }
+  };
+
+  const performAnalysis = async () => {
+    const oshi = getOshi(selectedOshiId);
+    if (!oshi) return;
+    const oshiActions = getOshiActions(selectedOshiId);
+    const basicInfo = basicInfos.find(bi => bi.oshiId === selectedOshiId);
+
+    if (oshiActions.length === 0) return alert('分析するための行動記録がありません。まずは推しの行動を記録してください。');
+
+    setIsAiLoading(true);
+    try {
+      const prompt = `あなたは推し活カウンセラーです。
+ユーザーの一問一答形式の基本情報と、これまでの感情記録（プラス・マイナス）を包括的に分析し、
+ユーザーが推しの「どこに惹かれているのか」「何に違和感を覚えるのか」を深く言語化してください。
+
+【推しの名前】: ${oshi.name}
+【基本情報】
+${JSON.stringify(basicInfo?.answers || {}, null, 2)}
+
+【最近の感情記録】
+${oshiActions.slice(-10).map(a => `- 感情: ${a.feeling === 'positive' ? 'プラス' : 'マイナス'}\n  行動: ${a.action}\n  理由: ${a.reason}`).join('\n')}
+
+【出力形式】
+以下のJSONのみで返してください：
+{
+  "attraction": "惹かれている魅力の深掘り（300文字程度）",
+  "concerns": "気になる点や違和感の分析（200文字程度）",
+  "summary": "最終的な『好き』の核心（100文字程度）",
+  "recommendations": [
+    { "name": "関連コンテンツ名", "reason": "推奨理由" }
+  ],
+  "tips": "今後の推し活へのアドバイス"
+}`;
+
+      const apiKey = localStorage.getItem('anthropic_api_key') || 'YOUR_API_KEY_HERE';
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerously-allow-browser": "true"
+        },
+        body: JSON.stringify({
+          model: "claude-3-sonnet-20240229",
+          max_tokens: 2000,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+
+      if (!response.ok) {
+        const errorInfo = handleApiError(new Error(`HTTP ${response.status}`), response);
+        throw new Error(errorInfo.message);
+      }
+
+      const data = await response.json();
+      const text = data.content[0].text;
+
+      // Use robust JSON parser
+      const result = parseAiJsonResponse(text);
+      saveAnalysis(result);
+    } catch (error) {
+      console.error('Deep Analysis Error:', error);
+      alert('分析に失敗しました:\n' + error.message);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   // Navigation
   // eslint-disable-next-line no-unused-vars
   const goHome = () => {
@@ -397,6 +747,31 @@ function App() {
   const goAddOshi = () => {
     setEditingItem(null);
     setCurrentView('oshi-form');
+  };
+
+  const goAddAction = () => {
+    setEditingItem(null);
+    setCurrentView('action-form');
+  };
+
+  const goEditAction = (action) => {
+    setEditingItem(action);
+    setCurrentView('action-form');
+  };
+
+  const goAnalysisResult = (analysis) => {
+    setSelectedAnalysisId(analysis.id);
+    setCurrentView('analysis-result');
+  };
+
+  const goTripForm = (trip = null) => {
+    setEditingItem(trip);
+    setCurrentView('trip-form');
+  };
+
+  const goTripDetail = (id) => {
+    setSelectedTripId(id);
+    setCurrentView('trip-detail');
   };
 
   const goEditOshi = (oshi) => {
@@ -434,36 +809,117 @@ function App() {
     setCurrentView('benefit-form');
   }
 
-  const goTripForm = (item = null) => {
-    setEditingItem(item);
-    setCurrentView('trip-form');
+  const goManagementDashboard = () => {
+    setCurrentView('management-dashboard');
   };
 
-  const goTripDetail = (id) => {
-    setSelectedTripId(id);
-    setCurrentView('trip-detail');
+  const goOshigotariSelect = () => {
+    setCurrentView('oshigotari-select');
   };
 
+  const goOshigotariMain = (id) => {
+    setSelectedOshiId(id);
+    setCurrentView('oshigotari-main');
+  };
+
+  const goBasicInfoForm = (id) => {
+    setSelectedOshiId(id);
+    setCurrentView('oshi-basic-form');
+  };
 
   // --- Sub-Components (Views) ---
 
-  const HomeView = () => {
+  const PortalHomeView = () => {
+    return (
+      <div className="min-h-[80vh] flex flex-col items-center justify-center space-y-12 px-4 py-8">
+        <div className="text-center space-y-4">
+          <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-pink-500 to-orange-500 bg-clip-text text-transparent">
+            推し記録帳
+          </h1>
+          <p className="text-lg text-gray-600 font-medium">推しとの向き合い方を見つけよう</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
+          {/* Card A: Management */}
+          <Card
+            className="group relative overflow-hidden cursor-pointer hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 bg-gradient-to-br from-pink-50 to-white border-2 border-pink-200 p-8"
+            onClick={goManagementDashboard}
+          >
+            <div className="flex flex-col h-full space-y-6 relative z-10">
+              <div className="bg-gradient-to-br from-white w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg">
+                <Coins className="w-8 h-8 text-orange-500" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold mb-2 text-gray-800">情報管理モード</h2>
+                <p className="text-gray-600 leading-relaxed">お金とスケジュールを管理。グッズ、イベント、予算を記録して計画的に推し活。</p>
+              </div>
+              <Button className="mt-auto w-full bg-white text-orange-500 border border-orange-500 font-bold text-lg py-6 rounded-xl shadow-md hover:shadow-lg">
+                管理画面へ
+              </Button>
+            </div>
+            <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500">
+              <Calendar className="w-48 h-48 text-pink-500" />
+            </div>
+          </Card>
+
+          {/* Card B: Oshi-Talk */}
+          <Card
+            className="group relative overflow-hidden cursor-pointer hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 bg-gradient-to-br from-orange-50 to-white border-2 border-orange-200 p-8"
+            onClick={goOshigotariSelect}
+          >
+            <div className="flex flex-col h-full space-y-6 relative z-10">
+              <div className="bg-gradient-to-br from-white w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg">
+                <Heart className="w-8 h-8 text-pink-500" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold mb-2 text-gray-800">推し語りモード</h2>
+                <p className="text-gray-600 leading-relaxed">推しの魅力を言語化。推しの行動を記録して、自分の好きを深く理解する。</p>
+              </div>
+              <Button className="mt-auto w-full bg-gradient-to-r from-orange-500 to-pink-500 text-white font-bold text-lg py-6 rounded-xl shadow-md hover:shadow-lg">
+                推し語りへ
+              </Button>
+            </div>
+            <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500">
+              <Heart className="w-48 h-48 text-orange-500" />
+            </div>
+          </Card>
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-4 mt-8">
+          <Button variant="outline" className="text-gray-600">
+            <Plus className="w-4 h-4 mr-2" /> 設定
+          </Button>
+          <Button variant="outline" className="text-gray-600">
+            <Coins className="w-4 h-4 mr-2" /> 統計を見る
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  const ManagementDashboardView = () => {
     const totalBudget = oshis.reduce((sum, o) => sum + o.monthlyBudget, 0);
     const totalSpent = oshis.reduce((sum, o) => sum + o.spent, 0);
     const remaining = totalBudget - totalSpent;
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-ethereal-fade">
         <header className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">推し活マネージャー</h1>
-          <Button onClick={goAddOshi} size="sm" variant="primary"><Plus className="w-4 h-4 mr-2" /> 推し追加</Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => setCurrentView('home')}><ArrowLeft className="w-5 h-5 text-gray-400" /></Button>
+            <h1 className="text-2xl font-black bg-gradient-to-r from-pink-500 to-orange-500 bg-clip-text text-transparent liquid-text">情報管理</h1>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={goOshigotariSelect} size="sm" variant="outline" className="shadow-pink-100/50"><Heart className="w-4 h-4 mr-2" /> 推し語りへ</Button>
+            <Button onClick={goAddOshi} size="sm" variant="primary"><Plus className="w-4 h-4 mr-2" /> 推し追加</Button>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Left Column: Stats & Oshi List */}
           <div className="md:col-span-2 space-y-6">
             {/* Budget Summary Card */}
-            <Card className="p-6 bg-gradient-to-br from-pink-50 to-purple-50 border-purple-100">
+            <Card className="p-6 bg-gradient-to-br from-pink-50 to-orange-50 border-orange-100">
               <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center"><Coins className="w-5 h-5 mr-2" />今月の予算サマリー</h2>
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
@@ -476,17 +932,17 @@ function App() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">残高</p>
-                  <p className={`text-xl font-bold ${remaining < 0 ? 'text-red-500' : 'text-blue-600'}`}>¥{remaining.toLocaleString()}</p>
+                  <p className={`text-xl font-bold ${remaining < 0 ? 'text-red-500' : 'text-emerald-600'}`}>¥{remaining.toLocaleString()}</p>
                 </div>
               </div>
               <div className="mt-4">
-                <Progress value={totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0} className="h-2" indicatorColor="bg-gradient-to-r from-pink-500 to-purple-500" />
+                <Progress value={totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0} className="h-2" indicatorColor="bg-gradient-to-r from-pink-500 to-orange-500" />
               </div>
             </Card>
 
             {/* Oshi List */}
             <div>
-              <h2 className="text-lg font-bold mb-3 flex items-center"><Heart className="w-5 h-5 mr-2 text-pink-500" /> 推し一覧</h2>
+              <h2 className="text-lg font-bold mb-3 flex items-center"><Heart className="w-5 h-5 mr-2 text-pink-400" /> 推し一覧</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {oshis.map(oshi => {
                   const percent = oshi.monthlyBudget > 0 ? (oshi.spent / oshi.monthlyBudget) * 100 : 0;
@@ -495,7 +951,7 @@ function App() {
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <h3 className="text-lg font-bold text-gray-800">{oshi.name}</h3>
-                          <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full">{oshi.genre}</span>
+                          <span className="text-xs px-2 py-1 bg-orange-100 text-orange-700 rounded-full">{oshi.genre}</span>
                         </div>
                         <ArrowLeft className="w-4 h-4 text-gray-300 transform rotate-180" />
                       </div>
@@ -506,7 +962,7 @@ function App() {
                             ¥{(oshi.monthlyBudget - oshi.spent).toLocaleString()}
                           </span>
                         </div>
-                        <Progress value={percent} className="h-2" indicatorColor={percent > 90 ? "bg-red-500" : "bg-pink-500"} />
+                        <Progress value={percent} className="h-2" indicatorColor={percent > 90 ? "bg-red-500" : "bg-pink-400"} />
                       </div>
                     </Card>
                   );
@@ -536,7 +992,7 @@ function App() {
                       <div key={event.id} className="text-sm border-b last:border-0 pb-2 cursor-pointer hover:bg-gray-50 p-1 rounded" onClick={() => goOshiDetail(event.oshiId)}>
                         <div className="flex justify-between text-gray-500 text-xs mb-0.5">
                           <span>{event.date}</span>
-                          <span className="text-pink-500 font-medium">{oshiName}</span>
+                          <span className="text-pink-400 font-medium">{oshiName}</span>
                         </div>
                         <div className="font-medium">{event.name}</div>
                       </div>
@@ -566,7 +1022,7 @@ function App() {
                       <div key={benefit.id} className="text-sm border-b last:border-0 pb-2 cursor-pointer hover:bg-gray-50 p-1 rounded" onClick={() => goOshiDetail(benefit.oshiId)}>
                         <div className="flex justify-between text-gray-500 text-xs mb-0.5">
                           <span className={`${isUrgent ? 'text-red-500 font-bold' : ''}`}>あと{diffDays}日 ({benefit.deadline})</span>
-                          <span className="text-pink-500 font-medium">{oshiName}</span>
+                          <span className="text-pink-400 font-medium">{oshiName}</span>
                         </div>
                         <div className="font-medium">{benefit.storeName}</div>
                         <div className="text-xs text-gray-400 truncate">{benefit.benefitDetail}</div>
@@ -594,7 +1050,7 @@ function App() {
                       <div key={trip.id} className="text-sm border-b last:border-0 pb-2 cursor-pointer hover:bg-gray-50 p-1 rounded" onClick={() => { setSelectedOshiId(trip.oshiId); goTripDetail(trip.id); }}>
                         <div className="flex justify-between text-gray-500 text-xs mb-0.5">
                           <span>{trip.date}</span>
-                          <span className="text-pink-500 font-medium">{oshiName}</span>
+                          <span className="text-pink-400 font-medium">{oshiName}</span>
                         </div>
                         <div className="font-medium">{trip.name}</div>
                         <div className="text-xs text-gray-400">{trip.destinations.length}箇所の目的地</div>
@@ -613,19 +1069,111 @@ function App() {
     );
   };
 
+  const handleGlobalAnalysis = async () => {
+    const unpurchased = goods.filter(g => g.oshiId === selectedOshiId && !g.purchased);
+    if (unpurchased.length === 0) return alert('未購入のグッズがありません');
+
+    setIsAiLoading(true);
+    try {
+      const oshi = getOshi(selectedOshiId);
+      const oshiActions = getOshiActions(selectedOshiId);
+      const oshiBasicInfo = basicInfos.find(bi => bi.oshiId === selectedOshiId);
+
+      const prompt = `あなたは推し活アドバイザーです。
+未購入のグッズリストを、推しの基本情報とこれまでの感情記録（プラス・マイナス）をもとに一括分析し、
+それぞれの購入優先度を提案してください。
+
+【推しの名前】: ${oshi.name}
+【最近の感情記録】
+${oshiActions.slice(-10).map(a => `- ${a.feeling === 'positive' ? 'プラス' : 'マイナス'}: ${a.action} (${a.reason})`).join('\n')}
+
+【未購入グッズリスト】
+${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円, メモ: ${g.memo || 'なし'}`).join('\n')}
+
+【出力要求】
+各グッズに対して、以下のJSON形式を含む配列のみで回答してください：
+[
+  {
+    "id": "グッズのID",
+    "aiPriority": "high" | "medium" | "low",
+    "aiScore": 0から100の数値,
+    "aiReason": "具体的な理由（80文字程度）"
+  },
+  ...
+]`;
+
+      const apiKey = localStorage.getItem('anthropic_api_key') || 'YOUR_API_KEY_HERE';
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerously-allow-browser": "true"
+        },
+        body: JSON.stringify({
+          model: "claude-3-sonnet-20240229",
+          max_tokens: 2000,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+
+      if (!response.ok) {
+        const errorInfo = handleApiError(new Error(`HTTP ${response.status}`), response);
+        throw new Error(errorInfo.message);
+      }
+
+      const data = await response.json();
+      const text = data.content[0].text;
+
+      // Use robust JSON parser
+      const results = parseAiJsonResponse(text);
+
+      // Merge AI results back to the original goods data for the modal
+      const mergedResults = unpurchased.map(g => {
+        const aiData = results.find(r => r.id === g.id);
+        return {
+          ...g,
+          aiScore: aiData?.aiScore || 50,
+          aiPriority: aiData?.aiPriority || 'medium',
+          aiReason: aiData?.aiReason || "分析結果が得られませんでした。"
+        };
+      });
+
+      setGlobalAnalysisData(mergedResults.sort((a, b) => b.aiScore - a.aiScore));
+      setShowGlobalAnalysis(true);
+    } catch (error) {
+      console.error('Global Analysis Error:', error);
+      alert('一括分析に失敗しました:\n' + error.message);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  const applyAllAiPriorities = () => {
+    const updatedGoods = goods.map(g => {
+      const analysis = globalAnalysisData.find(ad => ad.id === g.id);
+      if (analysis) {
+        return { ...g, priority: analysis.aiPriority };
+      }
+      return g;
+    });
+    setGoods(updatedGoods);
+    setShowGlobalAnalysis(false);
+    alert('AIの推奨優先度をすべてに適用しました！');
+  };
+
   const OshiDetailView = () => {
     const oshi = getOshi(selectedOshiId);
     const oshiGoods = getOshiGoods(selectedOshiId);
     const oshiEvents = getOshiEvents(selectedOshiId);
     const oshiBenefits = getOshiBenefits(selectedOshiId);
     const oshiTrips = getOshiTrips(selectedOshiId);
+    const oshiActions = getOshiActions(selectedOshiId);
+    const oshiAnalyses = getOshiAnalyses(selectedOshiId);
 
     // UI State for Tabs
-    const [activeTab, setActiveTab] = useState('goods'); // 'goods' | 'events' | 'benefits' | 'trips'
-
-    // Filters state
-    const [filterStatus, setFilterStatus] = useState('all'); // all, bought, not-bought
-    const [sortType, setSortType] = useState('priority'); // priority, date, price
+    const [isAiLoading, setIsAiLoading] = useState(false);
 
     if (!oshi) return <div>Data not found</div>;
 
@@ -634,31 +1182,34 @@ function App() {
 
     // Filter Logic
     let displayGoods = oshiGoods.filter(g => {
-      if (filterStatus === 'bought') return g.purchased;
-      if (filterStatus === 'not-bought') return !g.purchased;
+      if (goodsFilterStatus === 'bought') return g.purchased;
+      if (goodsFilterStatus === 'not-bought') return !g.purchased;
       return true;
     });
 
     // Sort Logic
     // eslint-disable-next-line array-callback-return
     displayGoods.sort((a, b) => {
-      if (sortType === 'priority') {
+      if (goodsSortType === 'priority') {
         const map = { high: 3, medium: 2, low: 1 };
         return map[b.priority] - map[a.priority];
       }
-      if (sortType === 'price') return a.price - b.price;
-      if (sortType === 'date') return new Date(a.releaseDate) - new Date(b.releaseDate);
+      if (goodsSortType === 'price') return a.price - b.price;
+      if (goodsSortType === 'date') return new Date(a.releaseDate) - new Date(b.releaseDate);
     });
 
     return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <Button variant="ghost" size="icon" onClick={() => setCurrentView('home')}><ArrowLeft className="w-5 h-5" /></Button>
-          <h1 className="text-xl font-bold">{oshi.name} 詳細</h1>
+      <div className="space-y-6 animate-ethereal-fade">
+        <div className="flex items-center justify-between mb-4 gap-2">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => setCurrentView('management-dashboard')} className="rounded-full"><ArrowLeft className="w-5 h-5" /></Button>
+            <h1 className="text-xl font-black liquid-text">{oshi.name} 詳細</h1>
+          </div>
+          <Button onClick={() => goOshigotariMain(oshi.id)} size="sm" variant="outline" className="border-orange-200 text-orange-500 shadow-orange-100/50"><Heart className="w-4 h-4 mr-2" /> 推し語りモード</Button>
         </div>
 
         {/* Oshi Info Header */}
-        <Card className="p-6 border-pink-200">
+        <Card className="p-6 border-pink-100">
           <div className="flex justify-between items-start">
             <div>
               <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -679,7 +1230,7 @@ function App() {
                 残高 ¥{remaining.toLocaleString()}
               </span>
             </div>
-            <Progress value={usagePercent} className="h-3" indicatorColor={usagePercent > 90 ? "bg-red-500" : "bg-pink-500"} />
+            <Progress value={usagePercent} className="h-4 rounded-full bg-white/30 backdrop-blur-sm shadow-inner" indicatorColor={usagePercent > 90 ? "bg-gradient-to-r from-red-400 to-red-600" : "bg-gradient-to-r from-pink-300 to-pink-500"} />
             <div className="flex justify-between mt-2 text-sm text-gray-400">
               <span>支出: ¥{oshi.spent.toLocaleString()}</span>
               <span>予算: ¥{oshi.monthlyBudget.toLocaleString()}</span>
@@ -697,19 +1248,19 @@ function App() {
         {/* Tabs Navigation */}
         <Tabs>
           <TabsList className="grid w-full grid-cols-4 mb-4 h-auto flex-wrap">
-            <TabsTrigger value="goods" activeValue={activeTab} onClick={setActiveTab} className="py-2">
+            <TabsTrigger value="goods" activeValue={oshiDetailActiveTab} onClick={() => setOshiDetailActiveTab('goods')} className="py-2">
               <ShoppingBag className="w-4 h-4 md:mr-2" /> <span className="hidden md:inline">グッズ</span>
               <span className="ml-1 md:ml-2 text-[10px] md:text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full">{oshiGoods.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="events" activeValue={activeTab} onClick={setActiveTab} className="py-2">
+            <TabsTrigger value="events" activeValue={oshiDetailActiveTab} onClick={() => setOshiDetailActiveTab('events')} className="py-2">
               <Calendar className="w-4 h-4 md:mr-2" /> <span className="hidden md:inline">イベント</span>
               <span className="ml-1 md:ml-2 text-[10px] md:text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full">{oshiEvents.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="benefits" activeValue={activeTab} onClick={setActiveTab} className="py-2">
+            <TabsTrigger value="benefits" activeValue={oshiDetailActiveTab} onClick={() => setOshiDetailActiveTab('benefits')} className="py-2">
               <Gift className="w-4 h-4 md:mr-2" /> <span className="hidden md:inline">特典</span>
               <span className="ml-1 md:ml-2 text-[10px] md:text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full">{oshiBenefits.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="trips" activeValue={activeTab} onClick={setActiveTab} className="py-2">
+            <TabsTrigger value="trips" activeValue={oshiDetailActiveTab} onClick={() => setOshiDetailActiveTab('trips')} className="py-2">
               <Map className="w-4 h-4 md:mr-2" /> <span className="hidden md:inline">遠征</span>
               <span className="ml-1 md:ml-2 text-[10px] md:text-xs bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded-full">{oshiTrips.length}</span>
             </TabsTrigger>
@@ -718,11 +1269,27 @@ function App() {
 
         {/* Goods Section */}
         {
-          activeTab === 'goods' && (
+          oshiDetailActiveTab === 'goods' && (
             <div>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold flex items-center"><ShoppingBag className="w-5 h-5 mr-2" /> グッズリスト</h3>
-                <Button onClick={goAddGoods} size="sm"><Plus className="w-4 h-4 mr-1" /> グッズ追加</Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleGlobalAnalysis}
+                    size="sm"
+                    variant="secondary"
+                    className="bg-orange-50 text-orange-500 hover:bg-orange-100 border-orange-100"
+                    disabled={isAiLoading || getOshiActions(selectedOshiId).length === 0}
+                  >
+                    {isAiLoading ? (
+                      <span className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin mr-1"></span>
+                    ) : (
+                      <Sparkles className="w-4 h-4 mr-1" />
+                    )}
+                    おすすめ分析
+                  </Button>
+                  <Button onClick={goAddGoods} size="sm"><Plus className="w-4 h-4 mr-1" /> グッズ追加</Button>
+                </div>
               </div>
 
               {/* Filters */}
@@ -733,8 +1300,8 @@ function App() {
                     { label: '価格順', value: 'price' },
                     { label: '発売日順', value: 'date' },
                   ]}
-                  value={sortType}
-                  onChange={(e) => setSortType(e.target.value)}
+                  value={goodsSortType}
+                  onChange={(e) => setGoodsSortType(e.target.value)}
                 />
                 <Select className="w-[140px]"
                   options={[
@@ -742,8 +1309,8 @@ function App() {
                     { label: '未購入', value: 'not-bought' },
                     { label: '購入済', value: 'bought' },
                   ]}
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
+                  value={goodsFilterStatus}
+                  onChange={(e) => setGoodsFilterStatus(e.target.value)}
                 />
               </div>
 
@@ -768,6 +1335,14 @@ function App() {
                             className="w-6 h-6 rounded border-gray-300 text-pink-500 focus:ring-pink-500 cursor-pointer"
                           />
                         </div>
+                        {item.photo && (
+                          <div
+                            className="w-12 h-12 rounded overflow-hidden border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => setSelectedPhoto(item.photo)}
+                          >
+                            <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
+                          </div>
+                        )}
                         <div className={`flex-1 ${item.purchased ? 'opacity-50' : ''}`}>
                           <div className="flex items-center gap-2 mb-1">
                             <span className={`text-xs px-2 py-0.5 rounded border ${priorityColors[item.priority]}`}>
@@ -782,6 +1357,7 @@ function App() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 ml-4">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => goEditGoods(item)}><Edit className="w-4 h-4" /></Button>
                         <button onClick={() => deleteGoods(item.id)} className="text-gray-400 hover:text-red-500 p-1">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -801,7 +1377,7 @@ function App() {
 
         {/* Events Section */}
         {
-          activeTab === 'events' && (
+          oshiDetailActiveTab === 'events' && (
             <div>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold flex items-center"><Ticket className="w-5 h-5 mr-2" /> イベントリスト</h3>
@@ -819,7 +1395,7 @@ function App() {
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">{event.category}</span>
+                          <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full">{event.category}</span>
                           <h4 className="font-bold text-gray-800">{event.name}</h4>
                         </div>
                         <div className="flex items-center text-sm text-gray-600 mb-2">
@@ -865,7 +1441,7 @@ function App() {
         }
 
         {/* Trips Section */}
-        {activeTab === 'trips' && (
+        {oshiDetailActiveTab === 'trips' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold flex items-center"><Map className="w-5 h-5 mr-2" /> 遠征プランリスト</h3>
@@ -879,7 +1455,7 @@ function App() {
                 </div>
               )}
               {oshiTrips.sort((a, b) => new Date(a.date) - new Date(b.date)).map(trip => (
-                <Card key={trip.id} className={`p-4 hover:border-pink-300 transition-colors ${trip.completed ? 'opacity-70 bg-gray-50' : ''}`}>
+                <Card key={trip.id} className={`p-4 hover:border-orange-300 transition-colors ${trip.completed ? 'opacity-70 bg-gray-50' : ''}`}>
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
@@ -888,7 +1464,7 @@ function App() {
                       </div>
                       <h4 className="font-bold text-lg text-gray-800">{trip.name}</h4>
                     </div>
-                    <Button variant="ghost" size="sm" className="text-pink-500 font-bold" onClick={() => goTripDetail(trip.id)}>詳細を見る</Button>
+                    <Button variant="ghost" size="sm" className="text-orange-500 font-bold" onClick={() => goTripDetail(trip.id)}>詳細を見る</Button>
                   </div>
                   <div className="flex items-center gap-4 text-sm text-gray-600">
                     <span className="flex items-center"><MapPin className="w-3.5 h-3.5 mr-1" />{trip.destinations.length}箇所</span>
@@ -899,7 +1475,141 @@ function App() {
             </div>
           </div>
         )}
-      </div>
+
+        {/* Actions Section */}
+        {oshiDetailActiveTab === 'actions' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-black flex items-center liquid-text"><Heart className="w-5 h-5 mr-2 text-pink-400 drop-shadow-sm" /> 推し語り記録</h3>
+              <div className="flex gap-2">
+                <Button onClick={performAnalysis} size="sm" variant="secondary" className="shadow-orange-200/50"><AlertCircle className="w-4 h-4 mr-1" /> AIで魅力を分析</Button>
+                <Button onClick={goAddAction} size="sm" variant="primary" className="shadow-pink-200/50"><Plus className="w-4 h-4 mr-1" /> 行動を記録</Button>
+              </div>
+            </div>
+
+            {/* Analysis History Mini List */}
+            {oshiAnalyses.length > 0 && (
+              <div className="bg-orange-50 p-3 rounded-lg border border-orange-100 mb-4">
+                <h4 className="text-xs font-bold text-orange-700 mb-2 uppercase tracking-wider">過去の分析履歴</h4>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {oshiAnalyses.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map(an => (
+                    <button
+                      key={an.id}
+                      onClick={() => goAnalysisResult(an)}
+                      className="whitespace-nowrap bg-white border border-orange-100 text-orange-500 px-3 py-1 rounded-full text-xs hover:bg-orange-100 transition-colors"
+                    >
+                      {an.date} の分析
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Visualizations */}
+            {oshiActions.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <Card className="p-4 bg-white border-pink-100 h-full">
+                  <h4 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider flex items-center">
+                    <Heart className="w-3 h-3 mr-1 text-pink-400" /> 特徴タグクラウド
+                  </h4>
+                  <div className="flex flex-wrap gap-2 justify-center items-center h-[100px]">
+                    {Array.from(new Set(oshiActions.flatMap(a => a.tags))).slice(0, 10).map((tag, idx) => {
+                      const count = oshiActions.filter(a => a.tags.includes(tag)).length;
+                      const size = Math.min(1.5, 0.8 + (count * 0.2));
+                      return (
+                        <span key={tag} className="bg-pink-50 text-pink-500 px-2 py-0.5 rounded border border-pink-100 font-bold" style={{ fontSize: `${size}rem` }}>
+                          {tag}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </Card>
+                <Card className="p-4 bg-white border-emerald-100 h-full">
+                  <h4 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider flex items-center">
+                    <Info className="w-3 h-3 mr-1 text-emerald-500" /> プラス・マイナス感情比率
+                  </h4>
+                  <div className="flex items-center justify-between h-[100px] px-4">
+                    <div className="relative w-24 h-24 rounded-full border-4 border-pink-200 overflow-hidden shadow-lg bg-white/90">
+                      <div
+                        className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-pink-500 to-pink-300 transition-all duration-1000 animate-liquid-ripple"
+                        style={{ height: `${(oshiActions.filter(a => a.feeling === 'positive').length / oshiActions.length) * 100}%` }}
+                      ></div>
+                      <div
+                        className="absolute top-0 left-0 w-full bg-gradient-to-b from-blue-600 to-blue-400 transition-all duration-1000"
+                        style={{ height: `${(oshiActions.filter(a => a.feeling === 'negative').length / oshiActions.length) * 100}%`, top: 0 }}
+                      ></div>
+                      <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent pointer-events-none"></div>
+                    </div>
+                    <div className="flex flex-col gap-1 text-xs font-bold">
+                      <div className="flex items-center text-pink-600">
+                        <div className="w-2 h-2 bg-pink-400 rounded-full mr-1"></div>
+                        プラス: {Math.round((oshiActions.filter(a => a.feeling === 'positive').length / oshiActions.length) * 100)}%
+                      </div>
+                      <div className="flex items-center text-emerald-600">
+                        <div className="w-2 h-2 bg-emerald-500 rounded-full mr-1"></div>
+                        マイナス: {Math.round((oshiActions.filter(a => a.feeling === 'negative').length / oshiActions.length) * 100)}%
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            )}
+
+            {/* Action Filters */}
+            <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
+              <Select className="w-[120px] h-8 text-xs"
+                options={[
+                  { label: 'すべて', value: 'all' },
+                  { label: '解釈一致', value: 'agree' },
+                  { label: '不一致', value: 'disagree' },
+                ]}
+                value={actionsFilterStatus}
+                onChange={(e) => setActionsFilterStatus(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-4">
+              {oshiActions.length === 0 && (
+                <div className="text-center py-10 text-gray-400 border-2 border-dashed rounded-lg bg-gray-50">
+                  推しの行動がまだ記録されていません。<br />「推し追加」ボタンから登録してください。
+                </div>
+              )}
+              {oshiActions
+                .filter(a => actionsFilterStatus === 'all' ? true : a.feeling === actionsFilterStatus)
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .map(action => (
+                  <Card key={action.id} className={`p-4 border-l-4 ${action.feeling === 'agree' ? 'bg-pink-50 border-pink-400' : 'bg-emerald-50 border-emerald-400'}`}>
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-gray-500">{action.date}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm ${action.feeling === 'agree' ? 'bg-pink-500 text-white' : 'bg-emerald-500 text-white'}`}>
+                          {action.feeling === 'agree' ? '解釈一致 💖' : '不一致 💙'}
+                        </span>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => goEditAction(action)}><Edit className="w-3 h-3" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteAction(action.id)}><Trash2 className="w-3 h-3" /></Button>
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <h5 className="font-bold text-gray-800 leading-tight mb-1">{action.action}</h5>
+                      <p className="text-xs text-gray-500 italic">@ {action.context}</p>
+                    </div>
+                    <div className="bg-white/50 p-2 rounded text-sm text-gray-700 mb-2">
+                      {action.reason}
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {action.tags.map(tag => (
+                        <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-white/80 text-gray-600 rounded border border-gray-200">#{tag}</span>
+                      ))}
+                    </div>
+                  </Card>
+                ))}
+            </div>
+          </div >
+        )
+        }
+      </div >
     );
   };
 
@@ -919,10 +1629,10 @@ function App() {
     };
 
     return (
-      <div className="max-w-md mx-auto space-y-6">
+      <div className="max-w-2xl mx-auto space-y-6 animate-ethereal-fade">
         <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon" onClick={() => setCurrentView('home')}><X className="w-5 h-5" /></Button>
-          <h1 className="text-xl font-bold">{editingItem ? '推しを編集' : '推しを登録'}</h1>
+          <Button variant="ghost" size="icon" onClick={() => setCurrentView('home')} className="rounded-full"><X className="w-5 h-5" /></Button>
+          <h1 className="text-xl font-black liquid-text">{editingItem ? '推しを編集' : '推しを登録'}</h1>
         </div>
         <Card className="p-6 space-y-4">
           <div className="space-y-2">
@@ -972,8 +1682,136 @@ function App() {
       price: '',
       releaseDate: '',
       priority: 'medium',
-      memo: ''
+      memo: '',
+      photo: null
     });
+
+    const handleFileChange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if (file.size > 5 * 1024 * 1024) {
+        alert('画像サイズは5MB以下にしてください');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, photo: reader.result });
+      };
+      reader.readAsDataURL(file);
+    };
+
+    const [aiResult, setAiResult] = useState(null);
+    const [isAiError, setIsAiError] = useState(false);
+
+    const handleAiSuggest = async () => {
+      const oshiActions = getOshiActions(selectedOshiId);
+      if (oshiActions.length === 0) return;
+      if (aiUsageCount >= 10) return alert('本日のAI相談回数制限（10回）に達しました。');
+
+      setIsAiLoading(true);
+      setAiResult(null);
+      setIsAiError(false);
+
+      try {
+        const oshi = getOshi(selectedOshiId);
+        const oshiBasicInfo = basicInfos.find(bi => bi.oshiId === selectedOshiId);
+        const positiveActions = oshiActions.filter(a => a.feeling === 'positive');
+        const negativeActions = oshiActions.filter(a => a.feeling === 'negative');
+
+        let prompt = `あなたは推し活アドバイザーです。
+ユーザーの推しに対する感情記録をもとに、今登録しようとしているグッズの優先度を提案してください。
+
+【推しの名前】: ${oshi.name}
+【推しの基本情報】
+${oshiBasicInfo?.answers ? Object.entries(oshiBasicInfo.answers)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join('\n') : '未登録'}
+
+【プラス感情の記録（好きな点）】
+${positiveActions.length > 0
+            ? positiveActions.slice(-5).map(a => `・行動: ${a.action}\n  理由: ${a.reason}`).join('\n\n')
+            : 'だ記録がありません'}
+
+【マイナス感情の記録（苦手な点）】
+${negativeActions.length > 0
+            ? negativeActions.slice(-5).map(a => `・行動: ${a.action}\n  理由: ${a.reason}`).join('\n\n')
+            : 'まだ記録がありません'}
+
+【登録予定のグッズ】
+グッズ名: ${formData.name || '未設定'}
+価格: ${formData.price || 0}円
+${formData.memo ? `メモ: ${formData.memo}` : ''}
+
+【提案してほしいこと】
+以下のJSON形式のみで答えてください：
+{
+  "priority": "high" | "medium" | "low",
+  "reason": "150文字程度の具体的な理由",
+  "score": 0から100の数値
+}`;
+
+        const content = formData.photo
+          ? [
+            {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: "image/jpeg",
+                data: formData.photo.split(',')[1]
+              }
+            },
+            {
+              type: "text",
+              text: prompt + '\n\n画像のビジュアルも考慮して分析してください。'
+            }
+          ]
+          : [{ type: "text", text: prompt }];
+
+        const apiKey = localStorage.getItem('anthropic_api_key') || 'YOUR_API_KEY_HERE';
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerously-allow-browser": "true"
+          },
+          body: JSON.stringify({
+            model: "claude-3-sonnet-20240229",
+            max_tokens: 1000,
+            messages: [{ role: 'user', content }]
+          })
+        });
+
+        if (!response.ok) {
+          const errorInfo = handleApiError(new Error(`HTTP ${response.status}`), response);
+          throw new Error(errorInfo.message);
+        }
+
+        const data = await response.json();
+        const text = data.content[0].text;
+
+        // Use robust JSON parser
+        const result = parseAiJsonResponse(text);
+        setAiResult(result);
+        setAiUsageCount(prev => prev + 1);
+      } catch (error) {
+        console.error('AI Recommendation Error:', error);
+        setIsAiError(true);
+        alert('AI分析に失敗しました:\n' + error.message);
+      } finally {
+        setIsAiLoading(false);
+      }
+    };
+
+    const useSuggestedPriority = () => {
+      if (aiResult) {
+        setFormData({ ...formData, priority: aiResult.priority });
+        setAiResult(null);
+      }
+    };
 
     const handleSubmit = () => {
       if (!formData.name) return alert('グッズ名を入力してください');
@@ -986,10 +1824,10 @@ function App() {
     };
 
     return (
-      <div className="max-w-md mx-auto space-y-6">
+      <div className="max-w-md mx-auto space-y-6 animate-ethereal-fade" >
         <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshi-detail')}><X className="w-5 h-5" /></Button>
-          <h1 className="text-xl font-bold">{editingItem ? 'グッズを編集' : 'グッズを登録'}</h1>
+          <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshi-detail')} className="rounded-full"><X className="w-5 h-5" /></Button>
+          <h1 className="text-xl font-black liquid-text">{editingItem ? 'グッズを編集' : 'グッズを登録'}</h1>
         </div>
         <Card className="p-6 space-y-4">
           <div className="space-y-2">
@@ -1028,6 +1866,54 @@ function App() {
                 { label: '低 (様子見)', value: 'low' },
               ]}
             />
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full mt-1 bg-orange-50 text-orange-500 hover:bg-orange-100 border-orange-100 text-xs py-1 h-8"
+              onClick={handleAiSuggest}
+              disabled={isAiLoading || getOshiActions(selectedOshiId).length === 0}
+            >
+              {isAiLoading ? (
+                <span className="flex items-center">
+                  <span className="w-3 h-3 border-2 border-orange-400 border-t-transparent rounded-full animate-spin mr-2"></span>
+                  分析中...
+                </span>
+              ) : (
+                <><Sparkles className="w-3 h-3 mr-2" /> AIに優先度を相談する</>
+              )}
+            </Button>
+            {getOshiActions(selectedOshiId).length === 0 && (
+              <p className="text-[10px] text-gray-400 mt-1 flex items-center"><AlertCircle className="w-3 h-3 mr-1 text-orange-400" /> 推し語りで感情記録を追加すると、より精度の高い提案ができます</p>
+            )}
+
+            {isAiError && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-100 rounded text-xs text-red-600 flex items-center">
+                <AlertCircle className="w-3 h-3 mr-2" /> 分析できませんでした。後でもう一度お試しください
+              </div>
+            )}
+
+            {aiResult && (
+              <div className="mt-3 p-3 bg-orange-50 border border-orange-100 rounded-lg animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold text-orange-500 uppercase tracking-wider">AI Suggestion</span>
+                  <span className="text-[10px] px-2 py-0.5 bg-white text-orange-500 rounded-full border border-orange-100 font-bold">
+                    一致度: {aiResult.score}%
+                  </span>
+                </div>
+                <div className="text-xs font-bold text-gray-800 mb-1">
+                  推奨優先度: <span className={aiResult.priority === 'high' ? 'text-pink-400' : (aiResult.priority === 'low' ? 'text-emerald-500' : 'text-orange-500')}>
+                    {aiResult.priority === 'high' ? '高 (絶対欲しい)' : (aiResult.priority === 'low' ? '低 (様子見)' : '中 (予算があれば)')}
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-600 leading-relaxed italic mb-3">
+                  「{aiResult.reason}」
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" className="flex-1 text-[10px] h-7 bg-orange-500" onClick={useSuggestedPriority}>この優先度を使う</Button>
+                  <Button size="sm" variant="outline" className="flex-1 text-[10px] h-7" onClick={() => setAiResult(null)}>自分で決める</Button>
+                </div>
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label>メモ</Label>
@@ -1036,6 +1922,31 @@ function App() {
               onChange={e => setFormData({ ...formData, memo: e.target.value })}
               placeholder="特典情報や購入場所など"
             />
+          </div>
+          <div className="space-y-2">
+            <Label>グッズの写真 (任意)</Label>
+            <div className="flex flex-col gap-4">
+              {formData.photo && (
+                <div className="relative w-full aspect-square max-h-48 rounded-lg overflow-hidden border border-gray-200">
+                  <img src={formData.photo} alt="Preview" className="w-full h-full object-cover" />
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-8 w-8 rounded-full"
+                    onClick={() => setFormData({ ...formData, photo: null })}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="cursor-pointer"
+              />
+              <p className="text-[10px] text-gray-400">※最大5MBまで。Base64形式で保存されます。</p>
+            </div>
           </div>
           <div className="pt-4 flex gap-3">
             <Button className="flex-1" variant="outline" onClick={() => setCurrentView('oshi-detail')}>キャンセル</Button>
@@ -1069,10 +1980,10 @@ function App() {
     };
 
     return (
-      <div className="max-w-md mx-auto space-y-6">
+      <div className="max-w-md mx-auto space-y-6 animate-ethereal-fade">
         <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshi-detail')}><X className="w-5 h-5" /></Button>
-          <h1 className="text-xl font-bold">{editingItem ? 'イベントを編集' : 'イベントを登録'}</h1>
+          <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshi-detail')} className="rounded-full"><X className="w-5 h-5" /></Button>
+          <h1 className="text-xl font-black liquid-text">{editingItem ? 'イベントを編集' : 'イベントを登録'}</h1>
         </div>
         <Card className="p-6 space-y-4">
           <div className="space-y-2">
@@ -1207,10 +2118,10 @@ function App() {
     };
 
     return (
-      <div className="max-w-2xl mx-auto space-y-6 pb-20">
+      <div className="max-w-2xl mx-auto space-y-6 pb-20 animate-ethereal-fade">
         <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshi-detail')}><X className="w-5 h-5" /></Button>
-          <h1 className="text-xl font-bold">{editingItem ? '遠征プランを編集' : '遠征プランを作成'}</h1>
+          <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshi-detail')} className="rounded-full"><X className="w-5 h-5" /></Button>
+          <h1 className="text-xl font-black liquid-text">{editingItem ? '遠征プランを編集' : '遠征プランを作成'}</h1>
         </div>
 
         <Card className="p-6 space-y-4">
@@ -1303,7 +2214,7 @@ function App() {
     const totalTrans = trip.destinations.reduce((sum, d) => sum + (Number(d.transportFee) || 0), 0);
 
     return (
-      <div className="max-w-2xl mx-auto space-y-6 pb-20">
+      <div className="max-w-2xl mx-auto space-y-6 pb-20 animate-ethereal-fade">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshi-detail')}><ArrowLeft className="w-5 h-5" /></Button>
@@ -1344,12 +2255,12 @@ function App() {
             return (
               <React.Fragment key={dest.id}>
                 <div className="relative z-10 flex items-start gap-4 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-pink-500 text-white flex items-center justify-center font-bold shadow-md shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-pink-400 text-white flex items-center justify-center font-bold shadow-md shrink-0">
                     {idx + 1}
                   </div>
                   <Card className="flex-1 p-4 shadow-sm border-gray-100">
                     <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center text-pink-500 font-bold">
+                      <div className="flex items-center text-pink-400 font-bold">
                         <Clock className="w-4 h-4 mr-1" /> {dest.arrivalTime || '--:--'}
                       </div>
                       <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{dest.purpose}</span>
@@ -1394,12 +2305,932 @@ function App() {
     );
   };
 
-  // --- Main Render ---
+  const OshiGotariSelectView = () => {
+    const [showSimpleForm, setShowSimpleForm] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newGenre, setNewGenre] = useState('');
+
+    const handleSimpleAdd = () => {
+      if (!newName) return alert('名前を入力してください');
+      const newOshi = {
+        id: `oshi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name: newName,
+        genre: newGenre || '未設定',
+        monthlyBudget: 0,
+        spent: 0,
+        createdAt: new Date().toISOString()
+      };
+      setOshis([...oshis, newOshi]);
+      goOshigotariMain(newOshi.id);
+    };
+
+    return (
+      <div className="max-w-4xl mx-auto space-y-8 animate-ethereal-fade">
+        <header className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => setCurrentView('home')}><ArrowLeft className="w-5 h-5" /></Button>
+            <h1 className="text-2xl font-bold text-gray-800">推し語り選択</h1>
+          </div>
+          <Button variant="outline" size="sm" onClick={goManagementDashboard}><Coins className="w-4 h-4 mr-2" /> 管理画面へ</Button>
+        </header>
+
+        <div className="text-center space-y-2">
+          <h2 className="text-xl font-bold text-gray-700">どの推しについて語りますか？</h2>
+          <p className="text-gray-500 italic">あなたの「好き」を深掘りしましょう。</p>
+        </div>
+
+        {oshis.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {oshis.map(oshi => (
+              <Card
+                key={oshi.id}
+                className="p-6 cursor-pointer hover:border-orange-400 hover:shadow-md transition-all group"
+                onClick={() => goOshigotariMain(oshi.id)}
+              >
+                <div className="flex flex-col items-center text-center space-y-4">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pink-400 to-pink-400 flex items-center justify-center group-hover:from-orange-200 group-hover:to-pink-200 transition-colors animate-floating">
+                    <Heart className="w-10 h-10 text-orange-400 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">{oshi.name}</h3>
+                    <p className="text-sm text-gray-500">{oshi.genre}</p>
+                  </div>
+                </div>
+              </Card>
+            ))}
+            <Card
+              className="p-6 flex flex-col items-center justify-center border-dashed border-2 text-gray-400 hover:text-pink-400 hover:border-pink-300 transition-colors cursor-pointer"
+              onClick={() => setShowSimpleForm(true)}
+            >
+              <Plus className="w-10 h-10 mb-2" />
+              <p className="font-bold">新しい推しを追加</p>
+            </Card>
+          </div>
+        ) : (
+          <div className="text-center space-y-6 py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+            <div className="space-y-2">
+              <h3 className="text-lg font-bold text-gray-600">まだ推しが登録されていません</h3>
+              <p className="text-gray-400">まず推しを登録して、語り始めましょう！</p>
+            </div>
+            {!showSimpleForm ? (
+              <Button onClick={() => setShowSimpleForm(true)} className="bg-gradient-to-r from-pink-400 to-pink-400 border-none px-8 py-6 text-lg">
+                推しを登録する
+              </Button>
+            ) : null}
+          </div>
+        )}
+
+        {showSimpleForm && (
+          <Card className="p-6 max-w-md mx-auto shadow-xl border-orange-100 animate-ethereal-fade">
+            <h3 className="text-lg font-bold mb-4 flex items-center"><Plus className="w-5 h-5 mr-2 text-orange-500" /> かんたん推し登録</h3>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>名前 <span className="text-red-500">*</span></Label>
+                <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="推しの名前" />
+              </div>
+              <div className="space-y-2">
+                <Label>ジャンル</Label>
+                <Input value={newGenre} onChange={e => setNewGenre(e.target.value)} placeholder="例：アイドル、アニメ、俳優" />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button variant="ghost" className="flex-1" onClick={() => setShowSimpleForm(false)}>キャンセル</Button>
+                <Button className="flex-1 bg-orange-500 hover:bg-orange-500" onClick={handleSimpleAdd}>登録して語る</Button>
+              </div>
+            </div>
+          </Card>
+        )}
+      </div>
+    );
+  };
+
+  const OshiGotariMainView = () => {
+    const oshi = getOshi(selectedOshiId);
+    const basicInfo = basicInfos.find(bi => bi.oshiId === selectedOshiId);
+    const oshiActions = getOshiActions(selectedOshiId);
+
+    if (!oshi) return <div>Data not found</div>;
+
+    const ActionTabContent = () => (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-bold flex items-center"><Heart className="w-5 h-5 mr-2 text-pink-500" /> 感情記録</h3>
+          <Button onClick={goAddAction} size="sm"><Plus className="w-4 h-4 mr-1" /> 感情を記録</Button>
+        </div>
+
+        {/* Action Filters */}
+        <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
+          <Select className="w-[150px] h-8 text-xs"
+            options={[
+              { label: 'すべて', value: 'all' },
+              { label: 'プラス感情のみ', value: 'positive' },
+              { label: 'マイナス感情のみ', value: 'negative' },
+            ]}
+            value={actionsFilterStatus}
+            onChange={(e) => setActionsFilterStatus(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-4">
+          {oshiActions.length === 0 && (
+            <div className="text-center py-10 text-gray-400 border-2 border-dashed rounded-lg bg-gray-50">
+              まだ記録がありません。
+            </div>
+          )}
+          {oshiActions
+            .filter(a => actionsFilterStatus === 'all' ? true : a.feeling === actionsFilterStatus)
+            .sort((a, b) => new Date(b.date) - new Date(a.date))
+            .map(action => (
+              <Card key={action.id} className={`p-4 border-l-4 ${action.feeling === 'positive' ? 'border-pink-400 bg-pink-50' : 'border-emerald-400 bg-emerald-50'}`}>
+                <div className="flex justify-between items-start mb-2">
+                  <span className="text-sm font-bold text-gray-500">{action.date}</span>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => goEditAction(action)}><Edit className="w-3 h-3" /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteAction(action.id)}><Trash2 className="w-3 h-3" /></Button>
+                  </div>
+                </div>
+                <h5 className="font-bold text-gray-800 mb-1">{action.action}</h5>
+                <p className="text-xs text-gray-500 mb-2 italic">@ {action.context}</p>
+                <div className="bg-white/50 p-2 rounded text-sm text-gray-700">{action.reason}</div>
+              </Card>
+            ))}
+        </div>
+      </div>
+    );
+
+    return (
+      <div className="space-y-6 animate-ethereal-fade">
+        <header className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshigotari-select')} className="rounded-full"><ArrowLeft className="w-5 h-5" /></Button>
+            <h1 className="text-2xl font-black bg-gradient-to-r from-pink-500 to-orange-500 bg-clip-text text-transparent liquid-text">{oshi.name} を語る</h1>
+          </div>
+          <Button variant="outline" size="sm" onClick={goManagementDashboard} className="shadow-pink-100/50"><Coins className="w-4 h-4 mr-2" /> 管理画面へ</Button>
+        </header>
+
+        <Card className="p-4 bg-gradient-to-r from-orange-300 to-pink-200 border-orange-100 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-xl shadow-sm">✨</div>
+            <div>
+              <p className="text-xs text-orange-500 font-bold uppercase tracking-wider">Now Reviewing</p>
+              <h2 className="text-xl font-bold text-gray-800">{oshi.name}</h2>
+            </div>
+          </div>
+          <p className="text-sm text-gray-500 italic hidden md:block">「好き」を言葉にして、魅力を再発見しましょう。</p>
+        </Card>
+
+        {/* Tabs */}
+        <Tabs>
+          <TabsList className="grid w-full grid-cols-3 mb-6 bg-orange-50 p-1 rounded-xl">
+            <TabsTrigger value="basic" activeValue={oshigotariMainActiveTab} onClick={() => setOshigotariMainActiveTab('basic')} className={`py-2 rounded-lg transition-all ${oshigotariMainActiveTab === 'basic' ? 'bg-white text-orange-500 shadow-sm' : 'text-orange-400 hover:text-orange-500'}`}>
+              <Info className="w-4 h-4 mr-2" /> 基本情報
+            </TabsTrigger>
+            <TabsTrigger value="actions" activeValue={oshigotariMainActiveTab} onClick={() => setOshigotariMainActiveTab('actions')} className={`py-2 rounded-lg transition-all ${oshigotariMainActiveTab === 'actions' ? 'bg-white text-pink-600 shadow-sm' : 'text-pink-400 hover:text-pink-500'}`}>
+              <Heart className="w-4 h-4 mr-2" /> 感情記録
+            </TabsTrigger>
+            <TabsTrigger value="analysis" activeValue={oshigotariMainActiveTab} onClick={() => setOshigotariMainActiveTab('analysis')} className={`py-2 rounded-lg transition-all ${oshigotariMainActiveTab === 'analysis' ? 'bg-white text-indigo-600 shadow-sm' : 'text-indigo-400 hover:text-indigo-500'}`}>
+              <AlertCircle className="w-4 h-4 mr-2" /> AI分析
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {/* Tab Content */}
+        <div className="min-h-[400px]">
+          {oshigotariMainActiveTab === 'basic' && (
+            <div className="bg-white p-6 rounded-2xl border border-orange-100 shadow-sm">
+              <h3 className="text-lg font-bold text-orange-700 mb-6 flex items-center"><Check className="w-5 h-5 mr-2" /> 一問一答データ</h3>
+              {basicInfo ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q1: 推しの名前は？</h4>
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">{basicInfo.answers.q1_name}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q2: 推しは何をしている人？</h4>
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">{basicInfo.answers.q2_activity}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q3: 推しの誕生日は？</h4>
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">{basicInfo.answers.q3_birthday}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q4: 推しの外見的特徴は？</h4>
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">{basicInfo.answers.q4_visual}</p>
+                    </div>
+                  </div>
+                  <Button variant="outline" className="w-full border-dashed border-orange-100 text-orange-500 font-bold py-8 rounded-xl hover:bg-orange-50" onClick={() => goBasicInfoForm(oshi.id)}>一問一答を編集・追加する</Button>
+                </div>
+              ) : (
+                <div className="text-center py-12 space-y-6">
+                  <p className="text-gray-500 leading-relaxed">まだ基本情報が入力されていません。<br />まずは一問一答で推しの解像度を上げましょう！</p>
+                  <Button onClick={() => goBasicInfoForm(oshi.id)} className="bg-orange-500 hover:bg-orange-600 px-8 py-6 rounded-xl text-lg font-bold shadow-lg shadow-orange-100">
+                    一問一答を始める
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {oshigotariMainActiveTab === 'actions' && <ActionTabContent />}
+
+          {oshigotariMainActiveTab === 'analysis' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold flex items-center text-orange-700"><AlertCircle className="w-5 h-5 mr-2" /> AI分析結果</h3>
+                <Button onClick={performAnalysis} size="sm" variant="secondary">再分析する</Button>
+              </div>
+              <div className="bg-orange-50 p-8 rounded-2xl border border-orange-100 text-center">
+                <p className="text-orange-400">一問一答と行動記録に基づいてAIがあなたの「好き」を言語化します。</p>
+                <img src="https://illustrations.popsy.co/orange/searching.svg" className="w-48 h-48 mx-auto my-4 opacity-50" alt="Analysis" />
+                <Button onClick={performAnalysis} className="mt-4 bg-orange-500 hover:bg-orange-600">分析を開始する</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div >
+    );
+  };
+
+  const ActionForm = () => {
+    const [formData, setFormData] = useState(editingItem || {
+      date: new Date().toISOString().split('T')[0],
+      action: '',
+      context: '',
+      feeling: 'positive',
+      reason: '',
+      tags: []
+    });
+
+    const presetTags = ['優しい', '面白い', 'かっこいい', '頼もしい', '繊細', '努力家', '天然', 'ツンデレ'];
+
+    const handleSubmit = () => {
+      if (!formData.action) return alert('行動・発言を入力してください');
+      saveAction(formData);
+    };
+    const toggleTag = (tag) => {
+      if (formData.tags.includes(tag)) {
+        setFormData({ ...formData, tags: formData.tags.filter(t => t !== tag) });
+      } else {
+        setFormData({ ...formData, tags: [...formData.tags, tag] });
+      }
+    };
+
+    return (
+      <div className="max-w-md mx-auto space-y-6 animate-ethereal-fade">
+        <div className="flex items-center space-x-2">
+          <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshi-detail')}><X className="w-5 h-5" /></Button>
+          <h1 className="text-xl font-bold">{editingItem ? '感情記録を編集' : '新しい感情を記録'}</h1>
+        </div>
+        <Card className="p-6 space-y-4">
+          <div className="space-y-2">
+            <Label>日付 <span className="text-red-500">*</span></Label>
+            <Input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>具体的に何があったか <span className="text-red-500">*</span></Label>
+            <Textarea
+              value={formData.action}
+              onChange={e => setFormData({ ...formData, action: e.target.value })}
+              placeholder="推しの行動や発言など"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>状況・背景</Label>
+            <Textarea
+              value={formData.context}
+              onChange={e => setFormData({ ...formData, context: e.target.value })}
+              placeholder="ライブ中、SNSでの発言など"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>今の気持ち <span className="text-red-500">*</span></Label>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-pink-50 transition-colors">
+                <input type="radio" checked={formData.feeling === 'positive'} onChange={() => setFormData({ ...formData, feeling: 'positive' })} className="text-pink-400 focus:ring-pink-400" />
+                <span className="text-sm">プラス感情（好き・嬉しい・素敵） 💖</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-emerald-50 transition-colors">
+                <input type="radio" checked={formData.feeling === 'negative'} onChange={() => setFormData({ ...formData, feeling: 'negative' })} className="text-emerald-500 focus:ring-blue-500" />
+                <span className="text-sm">マイナス感情（苦手・違和感・残念） 💙</span>
+              </label>
+            </div>
+          </div>
+          <div className="pt-4 flex gap-3">
+            <Button className="flex-1" variant="outline" onClick={() => setCurrentView('oshigotari-main')}>キャンセル</Button>
+            <Button className="flex-1" onClick={() => {
+              if (!formData.action) return alert('行動・発言を入力してください');
+              setEditingItem(formData);
+              setCurrentView('chat-session');
+            }}>AIと対話する</Button>
+          </div>
+        </Card>
+      </div>
+    );
+  };
+
+  const ChatSessionView = () => {
+    const oshi = getOshi(selectedOshiId);
+    const [inputValue, setInputValue] = useState('');
+    const [isTyping, setIsTyping] = useState(false);
+    const scrollRef = React.useRef(null);
+
+    const callClaudeAPI = async (systemPrompt, messages) => {
+      const apiKey = localStorage.getItem('anthropic_api_key') || 'YOUR_API_KEY_HERE';
+      if (apiKey === 'YOUR_API_KEY_HERE') {
+        throw new Error('APIキーが設定されていません。ブラウザのコンソールで localStorage.setItem("anthropic_api_key", "あなたのキー") を実行してください。');
+      }
+
+      console.log('--- AI API Call ---');
+      console.log('Messages Count:', messages.length);
+      console.log('System Prompt Snippet:', systemPrompt.substring(0, 100) + '...');
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerously-allow-browser": "true"
+        },
+        body: JSON.stringify({
+          model: "claude-3-sonnet-20240229", // Latest stable sonnet
+          max_tokens: 2000,
+          system: systemPrompt,
+          messages: messages
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 401) throw new Error('API認証エラーです。APIキーを確認してください。');
+        if (response.status === 429) throw new Error('利用制限に達しました。しばらく待ってから再試行してください。');
+        throw new Error(errorData.error?.message || `API Error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('API Response:', data);
+
+      if (!data.content || !data.content[0]) throw new Error('Invalid response format');
+      return data.content[0].text;
+    };
+
+    const getSystemPrompt = () => {
+      const basicInfo = basicInfos.find(bi => bi.oshiId === selectedOshiId);
+      return `あなたは共感的なカウンセラーです。
+ユーザーが記録した推し「${oshi.name}」の行動について、
+なぜその行動が「${editingItem.feeling === 'positive' ? 'プラス感情' : 'マイナス感情'}」
+と感じたのか、対話を通して一緒に探っていきます。
+
+【記録された行動】
+${editingItem.action}
+
+【状況・背景】
+${editingItem.context || '特になし'}
+
+【推しの基本情報】
+${JSON.stringify(basicInfo?.answers || {}, null, 2)}
+
+【対話の進め方】
+1. まず、その行動のどこに注目したかを尋ねる
+2. 過去の似た経験や感情を思い出してもらう
+3. 推しの性格や特徴と照らし合わせる
+4. 「なぜそう感じたのか」を言語化する手助けをする
+
+質問は1つずつ、短く。共感的で優しい口調で。
+ユーザーが自分の言葉で気づけるようサポートしてください。`;
+    };
+
+    // Initial message from AI
+    useEffect(() => {
+      if (chatMessages.length === 0) {
+        const initChat = async () => {
+          setIsTyping(true);
+          try {
+            const firstResponse = await callClaudeAPI(getSystemPrompt(), [
+              { role: 'user', content: '会話を開始してください。' }
+            ]);
+            setChatMessages([{ role: 'assistant', content: firstResponse }]);
+          } catch (error) {
+            console.error('Initial Chat Error:', error);
+            alert(error.message);
+          } finally {
+            setIsTyping(false);
+          }
+        };
+        initChat();
+      }
+    }, []);
+
+    useEffect(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    }, [chatMessages]);
+
+    const handleSend = async () => {
+      if (!inputValue.trim() || isTyping) return;
+      const userMsg = { role: 'user', content: inputValue };
+      const newHistory = [...chatMessages, userMsg];
+
+      setChatMessages(newHistory);
+      setInputValue('');
+      setIsTyping(true);
+
+      try {
+        const assistantResponse = await callClaudeAPI(getSystemPrompt(), newHistory);
+        setChatMessages([...newHistory, { role: 'assistant', content: assistantResponse }]);
+      } catch (error) {
+        console.error('Chat Error:', error);
+        alert('AI対話に失敗しました:\n' + error.message + '\n\nもう一度お試しください。');
+      } finally {
+        setIsTyping(false);
+      }
+    };
+
+    return (
+      <div className="flex flex-col h-[600px] border-2 border-pink-200 rounded-3xl overflow-hidden bg-white/90 backdrop-blur-sm shadow-2xl">
+        <header className="bg-gradient-to-r from-pink-50 to-orange-50 p-4 border-b border-pink-200 flex justify-between items-center shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-orange-400 flex items-center justify-center text-xl shadow-lg">✨</div>
+            <div>
+              <p className="text-[10px] text-pink-600 font-bold uppercase tracking-widest">Recording Action for</p>
+              <h2 className="text-lg font-black text-gray-800 liquid-text leading-tight">{oshi.name}</h2>
+            </div>
+          </div>
+          <Button size="sm" className="bg-gradient-to-r from-orange-500 to-pink-500 text-white">
+            会話を終了
+          </Button>
+        </header>
+
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/30">
+          {chatMessages.map((msg, idx) => (
+            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm ${msg.role === 'user'
+                ? 'bg-gradient-to-br from-pink-500 to-orange-500 text-white rounded-tr-none'
+                : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
+                }`}>
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          {isTyping && (
+            <div className="flex justify-start">
+              <div className="bg-white p-3 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm flex gap-1">
+                <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce"></span>
+                <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce delay-75"></span>
+                <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce delay-150"></span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="p-4 border-t border-gray-100 bg-white shadow-inner flex gap-2">
+          <Input
+            value={inputValue}
+            onChange={e => setInputValue(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSend()}
+            placeholder="メッセージを入力..."
+            className="flex-1 border-gray-100 focus:border-pink-300 transition-all"
+            disabled={isTyping}
+          />
+          <Button onClick={handleSend} disabled={isTyping} className="bg-pink-400 hover:bg-pink-500">
+            送信
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+  const ReasonSummaryView = () => {
+    const [finalReason, setFinalReason] = useState("");
+    const [isGenerating, setIsGenerating] = useState(true);
+
+    useEffect(() => {
+      const generateSummary = async () => {
+        setIsGenerating(true);
+        try {
+          const oshi = getOshi(selectedOshiId);
+          const basicInfo = basicInfos.find(bi => bi.oshiId === selectedOshiId);
+
+          const systemPrompt = `あなたは推し活アドバイザーです。
+ユーザーが推しの特定の行動についてAIと対話した記録があります。
+その対話の内容を150文字程度で要約し、ユーザーがなぜその行動に心を動かされたのか（あるいは違和感を覚えたのか）を言語化してください。
+
+【推しの名前】: ${oshi.name}
+【基本情報の一部】: ${basicInfo?.answers.q10_catchphrase || 'なし'}
+【記録された行動】: ${editingItem?.action}
+
+感情の種類: ${editingItem?.feeling === 'positive' ? 'プラス' : 'マイナス'}`;
+
+          const apiKey = localStorage.getItem('anthropic_api_key') || 'YOUR_API_KEY_HERE';
+          const response = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": apiKey,
+              "anthropic-version": "2023-06-01",
+              "anthropic-dangerously-allow-browser": "true"
+            },
+            body: JSON.stringify({
+              model: "claude-3-sonnet-20240229",
+              max_tokens: 1000,
+              messages: [
+                ...chatMessages,
+                { role: 'user', content: 'これまでの対話を要約して、理由を言語化してください。' }
+              ],
+              system: systemPrompt
+            })
+          });
+
+          if (!response.ok) throw new Error(`API Error: ${response.status}`);
+          const data = await response.json();
+          setFinalReason(data.content[0].text);
+        } catch (error) {
+          console.error('Summary Generation Error:', error);
+          setFinalReason('要約の生成に失敗しました。ご自身で入力をお願いします。');
+        } finally {
+          setIsGenerating(false);
+        }
+      };
+
+      if (chatMessages.length > 0) {
+        generateSummary();
+      } else {
+        setIsGenerating(false);
+      }
+    }, [chatMessages]);
+
+    const handleFinalSave = () => {
+      const oshiAction = {
+        ...editingItem,
+        oshiId: selectedOshiId,
+        id: editingItem.id || `action_${Date.now()}`,
+        reason: finalReason,
+        chatLog: chatMessages,
+        aiSummary: finalReason,
+        createdAt: editingItem.createdAt || new Date().toISOString()
+      };
+
+      const newActions = oshiAction.id && actions.find(a => a.id === oshiAction.id)
+        ? actions.map(a => a.id === oshiAction.id ? oshiAction : a)
+        : [...actions, oshiAction];
+
+      setActions(newActions);
+      setChatMessages([]);
+      setCurrentView('oshigotari-main');
+      setEditingItem(null);
+    };
+
+    return (
+      <div className="max-w-2xl mx-auto space-y-8 animate-ethereal-fade">
+        <div className="text-center space-y-2">
+          <h1 className="text-3xl font-black bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent liquid-text">対話のまとめ</h1>
+          <p className="text-gray-500 font-medium">AIとの対話から言語化された理由を確認してください</p>
+        </div>
+
+        <Card className="p-8 space-y-6 shadow-xl border-orange-100 bg-white">
+          <div className="space-y-4">
+            <h2 className="text-sm font-bold text-orange-400 uppercase tracking-widest flex items-center">
+              <AlertCircle className="w-4 h-4 mr-2" /> AI Summary
+            </h2>
+            <div className={`p-6 rounded-2xl border transition-all ${isGenerating ? 'bg-gray-50 border-gray-100' : 'bg-orange-50 border-orange-100'}`}>
+              {isGenerating ? (
+                <div className="flex items-center gap-3 text-gray-400">
+                  <div className="w-5 h-5 border-2 border-orange-100 border-t-orange-500 rounded-full animate-spin"></div>
+                  要約を作成中...
+                </div>
+              ) : (
+                <p className="text-gray-800 leading-relaxed italic">「{finalReason}」</p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h2 className="text-sm font-bold text-pink-400 uppercase tracking-widest flex items-center">
+              <Edit className="w-4 h-4 mr-2" /> Refine your Thoughts
+            </h2>
+            <p className="text-xs text-gray-400">AIの要約を参考に、自分の言葉で理由を書いてください</p>
+            <span className="sr-only">Final Reason Editor</span>
+            <Textarea
+              value={finalReason}
+              onChange={e => setFinalReason(e.target.value)}
+              className="min-h-[150px] border-gray-100 focus:border-pink-300 transition-all text-lg"
+              disabled={isGenerating}
+            />
+          </div>
+
+          <div className="flex gap-4 pt-4 border-t border-gray-100">
+            <Button variant="outline" className="flex-1" onClick={() => setCurrentView('chat-session')}>
+              もう少し対話する
+            </Button>
+            <Button className="flex-1 bg-gradient-to-r from-pink-400 to-pink-500 border-none shadow-lg shadow-pink-100 font-bold" onClick={handleFinalSave} disabled={isGenerating}>
+              この内容で保存
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  };
+
+  const OshiBasicInfoForm = () => {
+    const oshi = getOshi(selectedOshiId);
+    const existingInfo = basicInfos.find(bi => bi.oshiId === selectedOshiId);
+
+    const questions = [
+      { id: 'q1_name', label: '推しの名前は？（フルネーム・愛称）' },
+      { id: 'q2_activity', label: '推しは何をしている人？（職業・活動内容）' },
+      { id: 'q3_birthday', label: '推しの誕生日は？' },
+      { id: 'q4_visual', label: '推しの外見的特徴は？（髪型、身長、雰囲気など）' },
+      { id: 'q5_personality', label: '推しの性格を3つの言葉で表すと？' },
+      { id: 'q6_anniversary', label: '推しを好きになったのはいつ？' },
+      { id: 'q7_discovery', label: '推しを知ったきっかけは？' },
+      { id: 'q8_works', label: '推しの代表的な作品・活動は？' },
+      { id: 'q9_sns', label: '推しの公式SNSやサイトは？（任意）' },
+      { id: 'q10_catchphrase', label: '推しのキャッチフレーズを自分で作るなら？' }
+    ];
+
+    const [qIndex, setQIndex] = useState(0);
+    const [answers, setAnswers] = useState(existingInfo?.answers || {
+      q1_name: '',
+      q2_activity: '',
+      q3_birthday: '',
+      q4_visual: '',
+      q5_personality: '',
+      q6_anniversary: '',
+      q7_discovery: '',
+      q8_works: '',
+      q9_sns: '',
+      q10_catchphrase: ''
+    });
+
+    if (!oshi) return <div>Oshi not found</div>;
+
+    const currentQ = questions[qIndex];
+    const progress = ((qIndex + 1) / questions.length) * 100;
+
+    const handleNext = () => {
+      if (qIndex < questions.length - 1) {
+        setQIndex(qIndex + 1);
+      } else {
+        saveBasicInfo();
+      }
+    };
+
+    const handleBack = () => {
+      if (qIndex > 0) setQIndex(qIndex - 1);
+    };
+
+    const saveBasicInfo = () => {
+      const newInfo = {
+        oshiId: selectedOshiId,
+        answers,
+        updatedAt: new Date().toISOString()
+      };
+
+      const existingIdx = basicInfos.findIndex(bi => bi.oshiId === selectedOshiId);
+      if (existingIdx >= 0) {
+        const updated = [...basicInfos];
+        updated[existingIdx] = { ...updated[existingIdx], ...newInfo };
+        setBasicInfos(updated);
+      } else {
+        setBasicInfos([...basicInfos, { ...newInfo, createdAt: new Date().toISOString() }]);
+      }
+      setCurrentView('oshigotari-main');
+    };
+
+    return (
+      <div className="max-w-2xl mx-auto space-y-8 animate-ethereal-fade">
+        <header className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshigotari-main')}><X className="w-5 h-5" /></Button>
+          <div>
+            <h1 className="text-xl font-bold">{oshi.name} 一問一答</h1>
+            <p className="text-sm text-gray-500">質問に答えて魅力を深掘りしましょう</p>
+          </div>
+        </header>
+
+        <Card className="p-8 space-y-8 min-h-[400px] flex flex-col justify-between border-orange-100 shadow-xl">
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs font-bold text-orange-400 uppercase tracking-wider">
+                <span>Question {qIndex + 1} of {questions.length}</span>
+                <span>{Math.round(progress)}% Complete</span>
+              </div>
+              <Progress value={progress} className="h-2" indicatorColor="bg-gradient-to-r from-pink-400 to-orange-400" />
+            </div>
+
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold text-gray-800 leading-tight">
+                {currentQ.label}
+              </h2>
+              <Textarea
+                value={answers[currentQ.id]}
+                onChange={e => setAnswers({ ...answers, [currentQ.id]: e.target.value })}
+                placeholder="自由に語ってください..."
+                className="text-lg min-h-[150px] border-orange-100 focus:border-orange-400 transition-colors"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.ctrlKey) handleNext();
+                }}
+              />
+              <p className="text-xs text-gray-400">Ctrl + Enter で次へ</p>
+            </div>
+          </div>
+
+          <div className="flex gap-4 pt-6 mt-auto">
+            <Button
+              variant="outline"
+              className="flex-1 py-6 border-gray-200"
+              onClick={handleBack}
+              disabled={qIndex === 0}
+            >
+              前へ
+            </Button>
+            <Button
+              className="flex-[2] py-6 bg-orange-500 hover:bg-orange-600 text-lg"
+              onClick={handleNext}
+            >
+              {qIndex === questions.length - 1 ? '完了！' : '次へ'}
+            </Button>
+          </div>
+        </Card>
+
+        <div className="flex justify-center gap-2">
+          {questions.map((_, idx) => (
+            <div
+              key={idx}
+              className={`w-3 h-1 rounded-full ${idx === qIndex ? 'bg-orange-500 w-6' : idx < qIndex ? 'bg-orange-200' : 'bg-gray-200'} transition-all`}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const AnalysisResultView = () => {
+    const analysis = getAnalysis(selectedAnalysisId);
+    if (!analysis) return <div>Analysis not found</div>;
+
+    return (
+      <div className="max-w-2xl mx-auto space-y-6 pb-20 animate-ethereal-fade">
+        <div className="flex items-center space-x-2">
+          <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshi-detail')} className="rounded-full"><ArrowLeft className="w-5 h-5" /></Button>
+          <h1 className="text-xl font-black liquid-text">AI魅力分析結果 ({analysis.date})</h1>
+        </div>
+
+        <Card className="p-6 space-y-6 shadow-md border-pink-100">
+          <div className="space-y-4">
+            <h2 className="text-xl font-bold text-pink-600 border-b pb-2">✨ あなたが惹かれる推しの魅力</h2>
+            <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">{analysis.attraction}</div>
+          </div>
+
+          <div className="space-y-4">
+            <h2 className="text-xl font-bold text-emerald-600 border-b pb-2">👀 気になる点・苦手な部分</h2>
+            <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">{analysis.concerns}</div>
+          </div>
+
+          <div className="space-y-4 bg-pink-50 p-4 rounded-lg border border-pink-100">
+            <h2 className="text-xl font-bold text-gray-800 flex items-center"><Heart className="w-5 h-5 mr-2 text-pink-400" /> 結論：推しのどこが好きなのか</h2>
+            <div className="text-gray-800 font-medium leading-relaxed italic">「{analysis.summary}」</div>
+          </div>
+        </Card>
+
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold flex items-center"><ShoppingBag className="w-5 h-5 mr-2" /> おすすめのキャラ・コンテンツ</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {analysis.recommendations.map((rec, idx) => (
+              <Card key={idx} className="p-4 bg-white border-gray-100">
+                <h3 className="font-bold text-gray-800 mb-1">{rec.name}</h3>
+                <p className="text-xs text-gray-500">{rec.reason}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
+          <h2 className="text-md font-bold text-orange-700 mb-2 flex items-center"><Info className="w-4 h-4 mr-2" /> 推し活のヒント</h2>
+          <p className="text-sm text-orange-500">{analysis.tips}</p>
+        </div>
+
+        <div className="flex gap-4">
+          <Button className="flex-1" variant="outline" onClick={() => setCurrentView('oshi-detail')}>戻る</Button>
+          <Button className="flex-1" onClick={() => alert('再分析機能を実行します（シミュレーション）')}>再分析する</Button>
+        </div>
+      </div>
+    );
+  };
+
+  // Global AI Analysis Modal
+  const GlobalAiAnalysisModal = () => {
+    if (!showGlobalAnalysis) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300">
+        <Card className="max-w-xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border-orange-100 scale-in-center">
+          <header className="p-4 border-b border-orange-50 flex items-center justify-between bg-gradient-to-r from-orange-50 to-white">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center shadow-lg shadow-pink-200">
+                <Sparkles className="text-white w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-800 leading-tight">未購入アイテムのおすすめ分析</h2>
+                <p className="text-[10px] text-orange-500 font-medium">現在の感情と一問一答に基づくAI推奨</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setShowGlobalAnalysis(false)} className="h-8 w-8 rounded-full">
+              <X className="w-5 h-5 text-gray-400" />
+            </Button>
+          </header>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50">
+            {globalAnalysisData.length > 0 ? (
+              globalAnalysisData.map((item) => (
+                <div key={item.id} className="relative">
+                  <div className={`absolute -left-1 top-0 bottom-0 w-1 rounded-full ${item.aiPriority === 'high' ? 'bg-pink-400' : (item.aiPriority === 'low' ? 'bg-emerald-500' : 'bg-orange-500')}`}></div>
+                  <Card className="p-3 border-gray-100 hover:border-orange-100 transition-all bg-white">
+                    <div className="flex items-start gap-3">
+                      {item.photo && (
+                        <div className="w-12 h-12 rounded border border-gray-100 overflow-hidden shrink-0">
+                          <img src={item.photo} alt={item.name} className="w-full h-full object-cover" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded border ${item.aiPriority === 'high' ? 'bg-pink-50 text-rose-600 border-pink-100' : (item.aiPriority === 'low' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-orange-50 text-orange-100 border-orange-100')}`}>
+                            推奨{item.aiPriority === 'high' ? '高' : (item.aiPriority === 'low' ? '低' : '中')}
+                          </span>
+                          <span className="text-[9px] bg-orange-50 text-orange-500 px-1.5 py-0.5 rounded border border-orange-100">
+                            一致度 {item.aiScore}%
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-sm text-gray-800 truncate">{item.name}</h4>
+                        <p className="text-[10px] text-gray-500 mb-2 font-medium">¥{item.price.toLocaleString()}</p>
+                        <div className="bg-gray-50 p-2 rounded text-[10px] text-gray-600 italic">
+                          「{item.aiReason}」
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-10 text-gray-400 text-xs">分析データがありません</div>
+            )}
+          </div>
+
+          <footer className="p-4 border-t border-orange-50 bg-white flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" className="flex-1 h-9 text-xs" onClick={() => setShowGlobalAnalysis(false)}>閉じる</Button>
+            <Button className="flex-[2] h-9 text-xs bg-orange-500 hover:bg-pink-600 shadow-lg shadow-pink-100 font-bold" onClick={applyAllAiPriorities}>
+              推奨優先度を一括適用
+            </Button>
+          </footer>
+        </Card>
+      </div>
+    );
+  };
+
+  // Image Viewer Component
+  const ImageViewer = () => {
+    if (!selectedPhoto) return null;
+    return (
+      <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setSelectedPhoto(null)}>
+        <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-white hover:bg-white/10"><X className="w-8 h-8" /></Button>
+        <img src={selectedPhoto} alt="Full view" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
+      </div>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 p-4 md:p-8 font-sans">
-      <div className="max-w-4xl mx-auto">
-        {currentView === 'home' && <HomeView />}
+    <div className="min-h-screen bg-white flex flex-col font-sans text-gray-900">
+      {/* Background Decoration */}
+      <div className="fixed inset-0 -z-10 pointer-events-none">
+        <div className="absolute top-20 left-10 w-96 h-96 bg-emerald-100/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 right-10 w-80 h-80 bg-pink-100/20 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/3 w-64 h-64 bg-orange-100/20 rounded-full blur-3xl" />
+      </div>
+
+      {/* Navigation */}
+      <nav className="bg-white/95 backdrop-blur-sm border-b border-pink-100 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center space-x-2 cursor-pointer" onClick={goHome}>
+            <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-orange-400 rounded-xl flex items-center justify-center shadow-lg">
+              <Heart className="text-white w-6 h-6 fill-current" />
+            </div>
+            <span className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-orange-400 liquid-text">
+              推し記録帳
+            </span>
+          </div>
+          {currentView !== 'home' && (
+            <Button variant="ghost" size="sm" onClick={goHome}>ホームへ</Button>
+          )}
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 overflow-hidden">
+        {currentView === 'home' && <PortalHomeView />}
+        {currentView === 'management-dashboard' && <ManagementDashboardView />}
+        {currentView === 'oshigotari-select' && <OshiGotariSelectView />}
+        {currentView === 'oshigotari-main' && <OshiGotariMainView />}
         {currentView === 'oshi-detail' && <OshiDetailView />}
         {currentView === 'oshi-form' && <OshiForm />}
         {currentView === 'goods-form' && <GoodsForm />}
@@ -1407,10 +3238,17 @@ function App() {
         {currentView === 'benefit-form' && <BenefitForm />}
         {currentView === 'trip-form' && <TripForm />}
         {currentView === 'trip-detail' && <TripDetailView />}
-      </div>
+        {currentView === 'action-form' && <ActionForm />}
+        {currentView === 'chat-session' && <ChatSessionView />}
+        {currentView === 'reason-summary' && <ReasonSummaryView />}
+        {currentView === 'oshi-basic-form' && <OshiBasicInfoForm />}
+        {currentView === 'analysis-result' && <AnalysisResultView />}
+      </main>
+
+      <ImageViewer />
+      <GlobalAiAnalysisModal />
     </div>
   );
 }
 
 export default App;
-

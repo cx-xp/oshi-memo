@@ -4,6 +4,213 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-800;
+    @apply bg-white text-gray-800 font-sans antialiased;
+    background: linear-gradient(135deg, #fef9f6 0%, #ffffff 100%);
+    min-height: 100vh;
   }
+}
+
+@layer components {
+
+  /* ━━━ カード・コンテナ ━━━ */
+  .glass-card {
+    @apply bg-white/90 backdrop-blur-sm rounded-2xl border border-pink-100 shadow-lg;
+    box-shadow: 0 10px 30px rgba(255, 107, 157, 0.15);
+  }
+
+  .glass-nav {
+    @apply bg-white/95 backdrop-blur-sm border-b border-pink-100;
+    box-shadow: 0 4px 20px rgba(255, 107, 157, 0.1);
+  }
+
+  /* ━━━ グラデーションカード ━━━ */
+  .gradient-card {
+    @apply bg-gradient-to-br from-pink-50 to-orange-50 rounded-2xl border border-white/60 p-6;
+    box-shadow: 0 8px 24px rgba(255, 159, 102, 0.15);
+  }
+
+  /* ━━━ ボタン ━━━ */
+  .btn-primary {
+    @apply bg-gradient-to-r from-pink-500 to-orange-400 hover:from-pink-600 hover:to-orange-500;
+    @apply text-white font-bold px-6 py-3 rounded-xl shadow-md;
+    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5;
+    box-shadow: 0 4px 12px rgba(255, 107, 157, 0.3);
+  }
+
+  .btn-primary:hover {
+    box-shadow: 0 8px 20px rgba(255, 107, 157, 0.4);
+  }
+
+  .btn-secondary {
+    @apply bg-white border-2 border-pink-300 text-pink-600 hover:bg-pink-50;
+    @apply font-semibold px-6 py-3 rounded-xl transition-all duration-300;
+  }
+
+  /* 新規追加: ホーム画面用ボタン */
+  .btn-home-management {
+    @apply bg-white border-2 border-orange-500 text-orange-600 hover:bg-orange-50;
+    @apply font-bold px-6 py-3 rounded-xl transition-all duration-300;
+  }
+
+  .btn-home-oshigatari {
+    @apply bg-white border-2 border-pink-500 text-pink-600 hover:bg-pink-50;
+    @apply font-bold px-6 py-3 rounded-xl transition-all duration-300;
+  }
+
+  /* 新規追加: 「推し語りへ」「管理画面へ」ボタン */
+  .btn-to-oshigatari {
+    @apply bg-white border-2 border-pink-500 text-pink-600 hover:bg-pink-50;
+    @apply font-semibold px-4 py-2 rounded-lg transition-all duration-300;
+  }
+
+  .btn-to-management {
+    @apply bg-white border-2 border-orange-500 text-orange-600 hover:bg-orange-50;
+    @apply font-semibold px-4 py-2 rounded-lg transition-all duration-300;
+  }
+
+  /* ━━━ 感情記録カード ━━━ */
+  .emotion-card-positive {
+    @apply bg-pink-50 border-2 border-pink-300 rounded-xl p-4;
+    @apply transition-all duration-300 hover:shadow-md;
+  }
+
+  .emotion-card-negative {
+    @apply bg-emerald-50 border-2 border-emerald-300 rounded-xl p-4;
+    @apply transition-all duration-300 hover:shadow-md;
+  }
+
+  /* ━━━ アイコンコンテナ（ホーム画面用） ━━━ */
+  .icon-container-pink {
+    @apply w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-md;
+  }
+
+  .icon-container-pink svg {
+    @apply w-8 h-8 text-pink-500;
+  }
+
+  .icon-container-orange {
+    @apply w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-md;
+  }
+
+  .icon-container-orange svg {
+    @apply w-8 h-8 text-orange-500;
+  }
+
+  /* ━━━ 推し選択カード（推し語りモード） ━━━ */
+  .oshi-select-card {
+    @apply bg-white border-2 border-gray-200 rounded-2xl p-6 cursor-pointer;
+    @apply hover:border-pink-300 hover:shadow-lg transition-all duration-300;
+  }
+
+  .oshi-select-card.selected {
+    @apply border-pink-500 shadow-xl;
+    box-shadow: 0 10px 30px rgba(255, 107, 157, 0.3);
+  }
+
+  .oshi-icon-container {
+    @apply w-20 h-20 bg-white rounded-full flex items-center justify-center mb-4 mx-auto;
+  }
+
+  .oshi-icon-container svg {
+    @apply w-10 h-10 text-pink-500;
+  }
+
+  /* ━━━ テキスト ━━━ */
+  .text-heading {
+    @apply text-gray-800 font-bold text-2xl tracking-tight;
+  }
+
+  .text-body {
+    @apply text-gray-700 leading-relaxed;
+  }
+
+  .text-caption {
+    @apply text-gray-500 text-sm;
+  }
+
+  /* ━━━ 透明感エフェクト ━━━ */
+  .sparkle-dot {
+    @apply absolute w-2 h-2 bg-white rounded-full animate-pulse;
+  }
+
+  .sparkle-small {
+    @apply absolute w-1 h-1 bg-pink-300 rounded-full animate-ping;
+  }
+
+  /* ━━━ タブ（エメラルドグリーン版） ━━━ */
+  .tab-emerald {
+    @apply border-b-2 border-emerald-500 text-emerald-600 font-semibold pb-2;
+    @apply transition-all duration-300;
+  }
+
+  .tab-pink {
+    @apply border-b-2 border-pink-500 text-pink-600 font-semibold pb-2;
+    @apply transition-all duration-300;
+  }
+}
+
+@layer utilities {
+
+  /* ━━━ アニメーション ━━━ */
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-ethereal-fade {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+
+  .animate-floating {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  /* ━━━ テキスト効果（明確に） ━━━ */
+  .liquid-text {
+    @apply bg-gradient-to-r from-pink-500 to-orange-500 bg-clip-text text-transparent;
+    font-weight: 900;
+  }
+}
+
+/* ━━━ キーフレーム定義 ━━━ */
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+/* ━━━ 背景装飾用（ページ全体） ━━━ */
+.bg-decoration {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+}
+
+.bg-decoration-circle {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.2;
 }
