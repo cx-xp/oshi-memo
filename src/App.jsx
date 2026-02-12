@@ -3,23 +3,33 @@ import { Plus, Edit, Trash2, ArrowLeft, Check, X, Heart, ShoppingBag, Coins, Cal
 
 // --- UI Components (Simplified shadcn/ui style) ---
 
+// --- Button Component ---
 const Button = ({ children, variant = "primary", size = "default", className = "", ...props }) => {
   const variants = {
-    primary: "bg-gradient-to-r from-pink-500 to-orange-400 hover:from-pink-600 hover:to-orange-500 text-white shadow-md hover:shadow-lg hover:shadow-pink-300/50 hover:-translate-y-0.5",
+    primary: "bg-gradient-to-r from-pink-500 to-orange-400 text-white shadow-md hover:shadow-lg transition-all duration-300",
     secondary: "bg-white border-2 border-pink-300 text-pink-600 hover:bg-pink-50 font-semibold",
     outline: "bg-white/90 border border-pink-200 text-gray-700 hover:bg-pink-50 hover:border-pink-300",
     ghost: "hover:bg-pink-50 text-pink-600 transition-colors",
     destructive: "bg-gradient-to-r from-red-500 to-red-600 text-white shadow-md hover:shadow-lg",
+    plain: "bg-white border-2 shadow-md hover:shadow-lg",
+    normal: "",
+
+    // --- 新規追加: ホーム画面用ボタン ---
+    orange: "bg-orange-100 text-orange-600 hover:bg-orange-200 border-orange-200",
+    pink: "bg-pink-100 text-pink-600 hover:bg-pink-200 border-pink-200",
+    aqua: "bg-aqua-100 text-aqua-600 hover:bg-aqua-200 border-aqua-200",
   };
+
   const sizes = {
     default: "h-10 px-4 py-2",
-    sm: "h-8 px-3 text-xs",
+    sm: "h-10 px-5 text-sm md:text-base", // 少し大きめでアイコン+文字が改行されない
     lg: "h-12 px-8 text-lg",
     icon: "h-10 w-10",
   };
+
   return (
     <button
-      className={`inline-flex items-center justify-center rounded-xl font-bold transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:pointer-events-none ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`inline-flex items-center justify-center rounded-xl font-bold transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap ${variants[variant]} ${sizes[size]} ${className}`}
       {...props}
     >
       {children}
@@ -38,13 +48,13 @@ const Label = ({ children, className = "", ...props }) => (
 );
 
 const Card = ({ children, className = "", ...props }) => (
-  <div className={`bg-white/90 backdrop-blur-sm rounded-2xl border border-pink-100 shadow-lg transition-all duration-300 hover:shadow-xl ${className}`} {...props}>
+  <div className={`bg-white/90 backdrop-blur-sm rounded-2xl border transition-all duration-300 hover:shadow-xl ${className}`} {...props}>
     {children}
   </div>
 );
 
 const Progress = ({ value, className = "", indicatorColor = "bg-primary" }) => (
-  <div className={`relative h-4 w-full overflow-hidden rounded-full bg-secondary bg-gray-200 ${className}`}>
+  <div className={`relative h-4 w-full overflow-hidden rounded-full bg-secondary bg-white ${className}`}>
     <div className={`h-full w-full flex-1 transition-all ${indicatorColor}`} style={{ transform: `translateX(-${100 - (value || 0)}%)` }} />
   </div>
 );
@@ -75,10 +85,10 @@ const TabsList = ({ children, className = "" }) => (
   </div>
 );
 
-const TabsTrigger = ({ value, activeValue, onClick, children, className = "" }) => (
+const TabsTrigger = ({ value, activeValue, onClick, children, className = "", activeClassName = "", inactiveClassName = "" }) => (
   <button
     onClick={() => onClick(value)}
-    className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${activeValue === value ? "bg-white text-gray-900 shadow-sm" : "hover:text-gray-900 text-gray-500"
+    className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${activeValue === value ? "bg-white shadow-sm ${activeClassName}" : "${inactiveClassName}"} ${className}"}
       } ${className}`}
   >
     {children}
@@ -185,6 +195,24 @@ const validateDataForAnalysis = (oshi, actions, basicInfo) => {
 // --- Application Component ---
 
 function App() {
+
+  const [loading, setLoading] = useState(false);
+  const [nextPage, setNextPage] = useState(null);
+
+  const handleNavigate = (page) => {
+    setNextPage(page);
+    setLoading(true);
+
+    // アニメーション時間と同じ delay
+    setTimeout(() => {
+      // ページ遷移
+      page(); // 例: goManagementDashboard()
+      setLoading(false);
+      setNextPage(null);
+    }, 1500); // 1.5秒アニメ
+  };
+
+
   // State
   // State Loader
   const loadData = (key, defaultValue) => {
@@ -666,70 +694,48 @@ function App() {
   const performAnalysis = async () => {
     const oshi = getOshi(selectedOshiId);
     if (!oshi) return;
+
     const oshiActions = getOshiActions(selectedOshiId);
     const basicInfo = basicInfos.find(bi => bi.oshiId === selectedOshiId);
 
-    if (oshiActions.length === 0) return alert('分析するための行動記録がありません。まずは推しの行動を記録してください。');
+    if (!oshiActions || oshiActions.length === 0) {
+      alert('分析するための行動記録がありません。');
+      return;
+    }
 
     setIsAiLoading(true);
+
     try {
-      const prompt = `あなたは推し活カウンセラーです。
-ユーザーの一問一答形式の基本情報と、これまでの感情記録（プラス・マイナス）を包括的に分析し、
-ユーザーが推しの「どこに惹かれているのか」「何に違和感を覚えるのか」を深く言語化してください。
-
-【推しの名前】: ${oshi.name}
-【基本情報】
-${JSON.stringify(basicInfo?.answers || {}, null, 2)}
-
-【最近の感情記録】
-${oshiActions.slice(-10).map(a => `- 感情: ${a.feeling === 'positive' ? 'プラス' : 'マイナス'}\n  行動: ${a.action}\n  理由: ${a.reason}`).join('\n')}
-
-【出力形式】
-以下のJSONのみで返してください：
-{
-  "attraction": "惹かれている魅力の深掘り（300文字程度）",
-  "concerns": "気になる点や違和感の分析（200文字程度）",
-  "summary": "最終的な『好き』の核心（100文字程度）",
-  "recommendations": [
-    { "name": "関連コンテンツ名", "reason": "推奨理由" }
-  ],
-  "tips": "今後の推し活へのアドバイス"
-}`;
-
-      const apiKey = localStorage.getItem('anthropic_api_key') || 'YOUR_API_KEY_HERE';
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
+      const response = await fetch("/api/analyze", {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerously-allow-browser": "true"
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: "claude-3-sonnet-20240229",
-          max_tokens: 2000,
-          messages: [{ role: 'user', content: prompt }]
+          oshiName: oshi.name,
+          basicInfo: basicInfo?.answers || {},
+          actions: oshiActions.slice(-10)
         })
       });
 
       if (!response.ok) {
-        const errorInfo = handleApiError(new Error(`HTTP ${response.status}`), response);
-        throw new Error(errorInfo.message);
+        throw new Error('サーバーエラー');
       }
 
       const data = await response.json();
-      const text = data.content[0].text;
 
-      // Use robust JSON parser
-      const result = parseAiJsonResponse(text);
-      saveAnalysis(result);
+      // 変更
+      saveAnalysis(data);
+
     } catch (error) {
-      console.error('Deep Analysis Error:', error);
-      alert('分析に失敗しました:\n' + error.message);
+      console.error('AI分析エラー:', error);
+      alert('AI分析に失敗しました');
     } finally {
       setIsAiLoading(false);
     }
   };
+
+
 
   // Navigation
   // eslint-disable-next-line no-unused-vars
@@ -842,29 +848,31 @@ ${oshiActions.slice(-10).map(a => `- 感情: ${a.feeling === 'positive' ? 'プ�
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
           {/* Card A: Management */}
           <Card
-            className="group relative overflow-hidden cursor-pointer hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 bg-gradient-to-br from-pink-50 to-white border-2 border-pink-200 p-8"
+            className="group relative overflow-hidden border-2 border-orange-200 text-orange-600 cursor-pointer hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 bg-gradient-to-br from-orange-50 to-white p-8"
             onClick={goManagementDashboard}
           >
             <div className="flex flex-col h-full space-y-6 relative z-10">
               <div className="bg-gradient-to-br from-white w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg">
-                <Coins className="w-8 h-8 text-orange-500" />
+                <Coins className="w-8 h-8 text-orange-600" />
               </div>
               <div>
                 <h2 className="text-2xl font-bold mb-2 text-gray-800">情報管理モード</h2>
                 <p className="text-gray-600 leading-relaxed">お金とスケジュールを管理。グッズ、イベント、予算を記録して計画的に推し活。</p>
               </div>
-              <Button className="mt-auto w-full bg-white text-orange-500 border border-orange-500 font-bold text-lg py-6 rounded-xl shadow-md hover:shadow-lg">
+              <Button
+                onClick={() => handleNavigate(goManagementDashboard)}
+                variant="plain" className="mt-auto w-full bg-white text-orange-500 border border-orange-400 font-bold text-base md:text-lg py-5 rounded-xl shadow-md hover:shadow-lg whitespase-nowrap">
                 管理画面へ
               </Button>
             </div>
             <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500">
-              <Calendar className="w-48 h-48 text-pink-500" />
+              <Calendar className="w-48 h-48 text-orange-800" />
             </div>
           </Card>
 
           {/* Card B: Oshi-Talk */}
           <Card
-            className="group relative overflow-hidden cursor-pointer hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 bg-gradient-to-br from-orange-50 to-white border-2 border-orange-200 p-8"
+            className="group relative overflow-hidden border-2 border-pink-200 text-pink-600 cursor-pointer hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 bg-gradient-to-br from-pink-50 to-white border-2 border-pink-200 p-8"
             onClick={goOshigotariSelect}
           >
             <div className="flex flex-col h-full space-y-6 relative z-10">
@@ -875,23 +883,14 @@ ${oshiActions.slice(-10).map(a => `- 感情: ${a.feeling === 'positive' ? 'プ�
                 <h2 className="text-2xl font-bold mb-2 text-gray-800">推し語りモード</h2>
                 <p className="text-gray-600 leading-relaxed">推しの魅力を言語化。推しの行動を記録して、自分の好きを深く理解する。</p>
               </div>
-              <Button className="mt-auto w-full bg-gradient-to-r from-orange-500 to-pink-500 text-white font-bold text-lg py-6 rounded-xl shadow-md hover:shadow-lg">
+              <Button variant="plain" className="mt-auto w-full bg-white text-pink-500 border border-pink-400 font-bold text-base md:text-lg py-5 rounded-xl shadow-md hover:shadow-lg whitespase-nowrap">
                 推し語りへ
               </Button>
             </div>
             <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500">
-              <Heart className="w-48 h-48 text-orange-500" />
+              <Heart className="w-48 h-48 text-pink-800" />
             </div>
           </Card>
-        </div>
-
-        <div className="flex flex-wrap justify-center gap-4 mt-8">
-          <Button variant="outline" className="text-gray-600">
-            <Plus className="w-4 h-4 mr-2" /> 設定
-          </Button>
-          <Button variant="outline" className="text-gray-600">
-            <Coins className="w-4 h-4 mr-2" /> 統計を見る
-          </Button>
         </div>
       </div>
     );
@@ -906,48 +905,48 @@ ${oshiActions.slice(-10).map(a => `- 感情: ${a.feeling === 'positive' ? 'プ�
       <div className="space-y-6 animate-ethereal-fade">
         <header className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setCurrentView('home')}><ArrowLeft className="w-5 h-5 text-gray-400" /></Button>
-            <h1 className="text-2xl font-black bg-gradient-to-r from-pink-500 to-orange-500 bg-clip-text text-transparent liquid-text">情報管理</h1>
+            <Button variant="normal" size="icon" onClick={() => setCurrentView('home')}><ArrowLeft className="w-5 h-5 text-gray-400 hover:text-gray-600 hover:bg-gray-200/70 rounded-lg transition-colors" /></Button>
+            <h1 className="text-2xl font-bold text-orange-600">情報管理</h1>
           </div>
           <div className="flex gap-2">
-            <Button onClick={goOshigotariSelect} size="sm" variant="outline" className="shadow-pink-100/50"><Heart className="w-4 h-4 mr-2" /> 推し語りへ</Button>
-            <Button onClick={goAddOshi} size="sm" variant="primary"><Plus className="w-4 h-4 mr-2" /> 推し追加</Button>
+            <Button onClick={goOshigotariSelect} size="sm" variant="plain" className="border-pink-400 text-pink-500 "><Heart className="w-4 h-4 mr-2 text-pink-500" /> 推し語りへ</Button>
+            <Button onClick={goAddOshi} size="sm" variant="plain" className="border-orange-500 text-orange-600 "><Plus className="w-4 h-4 mr-2 text-orange-600" /> 推し追加</Button>
           </div>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Left Column: Stats & Oshi List */}
           <div className="md:col-span-2 space-y-6">
-            {/* Budget Summary Card */}
-            <Card className="p-6 bg-gradient-to-br from-pink-50 to-orange-50 border-orange-100">
-              <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center"><Coins className="w-5 h-5 mr-2" />今月の予算サマリー</h2>
+            {/* Budget Summary */}
+            <div className="p-6 rounded-2xl bg-white/90 backdrop-blur-md border border-white/60 shadow-[0_10px_20px_rgba(255,140,0,0.25)]">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center"><Coins className="w-5 h-5 mr-2 text-orange-600" />今月の予算サマリー</h2>
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
                   <p className="text-sm text-gray-500">総予算</p>
-                  <p className="text-xl font-bold text-gray-800">¥{totalBudget.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-gray-700">¥{totalBudget.toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">支出</p>
-                  <p className="text-xl font-bold text-pink-600">¥{totalSpent.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-orange-700">¥{totalSpent.toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">残高</p>
-                  <p className={`text-xl font-bold ${remaining < 0 ? 'text-red-500' : 'text-emerald-600'}`}>¥{remaining.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-aqua-700">¥{remaining.toLocaleString()}</p>
                 </div>
               </div>
               <div className="mt-4">
-                <Progress value={totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0} className="h-2" indicatorColor="bg-gradient-to-r from-pink-500 to-orange-500" />
+                <Progress value={totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0} className="h-2 bg-gray-200" indicatorColor="bg-gradient-to-r from-orange-300 to-orange-600" />
               </div>
-            </Card>
+            </div>
 
             {/* Oshi List */}
             <div>
-              <h2 className="text-lg font-bold mb-3 flex items-center"><Heart className="w-5 h-5 mr-2 text-pink-400" /> 推し一覧</h2>
+              <h2 className="text-lg font-bold mb-3 flex items-center"><Heart className="w-5 h-5 mr-2 text-orange-600" /> 推し一覧</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {oshis.map(oshi => {
                   const percent = oshi.monthlyBudget > 0 ? (oshi.spent / oshi.monthlyBudget) * 100 : 0;
                   return (
-                    <Card key={oshi.id} className="p-4 hover:shadow-lg transition-shadow cursor-pointer border-pink-100" onClick={() => goOshiDetail(oshi.id)}>
+                    <Card key={oshi.id} className="p-4 hover:shadow-lg transition-shadow cursor-pointer border-orange-200" onClick={() => goOshiDetail(oshi.id)}>
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <h3 className="text-lg font-bold text-gray-800">{oshi.name}</h3>
@@ -958,11 +957,11 @@ ${oshiActions.slice(-10).map(a => `- 感情: ${a.feeling === 'positive' ? 'プ�
                       <div className="mt-4 space-y-2">
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-500">残高</span>
-                          <span className={`font-medium ${oshi.monthlyBudget - oshi.spent < 0 ? 'text-red-500' : 'text-gray-700'}`}>
+                          <span className={`font-medium ${oshi.monthlyBudget - oshi.spent < 0 ? 'text-orange-500' : 'text-gray-700'}`}>
                             ¥{(oshi.monthlyBudget - oshi.spent).toLocaleString()}
                           </span>
                         </div>
-                        <Progress value={percent} className="h-2" indicatorColor={percent > 90 ? "bg-red-500" : "bg-pink-400"} />
+                        <Progress value={percent} className="h-2" indicatorColor="bg-orange-300" />
                       </div>
                     </Card>
                   );
@@ -992,7 +991,7 @@ ${oshiActions.slice(-10).map(a => `- 感情: ${a.feeling === 'positive' ? 'プ�
                       <div key={event.id} className="text-sm border-b last:border-0 pb-2 cursor-pointer hover:bg-gray-50 p-1 rounded" onClick={() => goOshiDetail(event.oshiId)}>
                         <div className="flex justify-between text-gray-500 text-xs mb-0.5">
                           <span>{event.date}</span>
-                          <span className="text-pink-400 font-medium">{oshiName}</span>
+                          <span className="text-orange-400 font-medium">{oshiName}</span>
                         </div>
                         <div className="font-medium">{event.name}</div>
                       </div>
@@ -1022,7 +1021,7 @@ ${oshiActions.slice(-10).map(a => `- 感情: ${a.feeling === 'positive' ? 'プ�
                       <div key={benefit.id} className="text-sm border-b last:border-0 pb-2 cursor-pointer hover:bg-gray-50 p-1 rounded" onClick={() => goOshiDetail(benefit.oshiId)}>
                         <div className="flex justify-between text-gray-500 text-xs mb-0.5">
                           <span className={`${isUrgent ? 'text-red-500 font-bold' : ''}`}>あと{diffDays}日 ({benefit.deadline})</span>
-                          <span className="text-pink-400 font-medium">{oshiName}</span>
+                          <span className="text-orange-400 font-medium">{oshiName}</span>
                         </div>
                         <div className="font-medium">{benefit.storeName}</div>
                         <div className="text-xs text-gray-400 truncate">{benefit.benefitDetail}</div>
@@ -1050,7 +1049,7 @@ ${oshiActions.slice(-10).map(a => `- 感情: ${a.feeling === 'positive' ? 'プ�
                       <div key={trip.id} className="text-sm border-b last:border-0 pb-2 cursor-pointer hover:bg-gray-50 p-1 rounded" onClick={() => { setSelectedOshiId(trip.oshiId); goTripDetail(trip.id); }}>
                         <div className="flex justify-between text-gray-500 text-xs mb-0.5">
                           <span>{trip.date}</span>
-                          <span className="text-pink-400 font-medium">{oshiName}</span>
+                          <span className="text-orange-400 font-medium">{oshiName}</span>
                         </div>
                         <div className="font-medium">{trip.name}</div>
                         <div className="text-xs text-gray-400">{trip.destinations.length}箇所の目的地</div>
@@ -1202,41 +1201,41 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
       <div className="space-y-6 animate-ethereal-fade">
         <div className="flex items-center justify-between mb-4 gap-2">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setCurrentView('management-dashboard')} className="rounded-full"><ArrowLeft className="w-5 h-5" /></Button>
-            <h1 className="text-xl font-black liquid-text">{oshi.name} 詳細</h1>
+            <Button variant="normal" size="icon" onClick={() => setCurrentView('management-dashboard')} className="rounded-full"><ArrowLeft className="w-5 h-5 text-gray-400 hover:text-gray-600 hover:bg-gray-200/70 rounded-lg transition-colors" /></Button>
+            <h1 className="text-2xl font-bold text-orange-600">{oshi.name} 詳細</h1>
           </div>
-          <Button onClick={() => goOshigotariMain(oshi.id)} size="sm" variant="outline" className="border-orange-200 text-orange-500 shadow-orange-100/50"><Heart className="w-4 h-4 mr-2" /> 推し語りモード</Button>
+          <Button onClick={goOshigotariSelect} size="sm" variant="plain" className="border-pink-400 text-pink-500 "><Heart className="w-4 h-4 mr-2 text-pink-500" /> 推し語りへ</Button>
         </div>
 
         {/* Oshi Info Header */}
-        <Card className="p-6 border-pink-100">
+        <Card className="p-6 border-orange-100">
           <div className="flex justify-between items-start">
             <div>
-              <h2 className="text-2xl font-bold flex items-center gap-2">
+              <h2 variant="normal" className="text-2xl font-bold flex items-center gap-2 text-gray-800">
                 {oshi.name} <span className="text-sm font-normal px-2 py-1 bg-gray-100 rounded-full">{oshi.genre}</span>
               </h2>
             </div>
             <div className="flex space-x-2">
-              <Button variant="outline" size="sm" onClick={() => goEditOshi(oshi)}><Edit className="w-4 h-4 mr-1" /> 編集</Button>
-              <Button variant="destructive" size="sm" onClick={() => deleteOshi(oshi.id)}><Trash2 className="w-4 h-4 mr-1" /> 削除</Button>
+              <Button variant="orange" size="sm" onClick={() => goEditOshi(oshi)}><Edit className="w-4 h-4 mr-1" /> 編集</Button>
+              <Button variant="aqua" size="sm" onClick={() => deleteOshi(oshi.id)}><Trash2 className="w-4 h-4 mr-1" /> 削除</Button>
             </div>
           </div>
 
           {/* Dashboard */}
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <div className="flex justify-between items-end mb-2">
+            <div className="flex justify-between items-end">
               <span className="text-sm font-medium text-gray-500">今月の予算状況</span>
-              <span className={`text-xl font-bold ${remaining < (oshi.monthlyBudget * 0.1) ? 'text-red-500' : 'text-gray-800'}`}>
+              <span className={`text-xl font-bold ${remaining < (oshi.monthlyBudget * 0.1) ? 'text-orange-600' : 'text-gray-800'}`}>
                 残高 ¥{remaining.toLocaleString()}
               </span>
             </div>
-            <Progress value={usagePercent} className="h-4 rounded-full bg-white/30 backdrop-blur-sm shadow-inner" indicatorColor={usagePercent > 90 ? "bg-gradient-to-r from-red-400 to-red-600" : "bg-gradient-to-r from-pink-300 to-pink-500"} />
-            <div className="flex justify-between mt-2 text-sm text-gray-400">
+            <Progress value={usagePercent} className="h-4 rounded-full bg-white/30 backdrop-blur-sm shadow-inner" indicatorColor={usagePercent > 90 ? "bg-gradient-to-r from-orange-400 to-orange-600" : "bg-gradient-to-r from-orange-300 to-orange-500"} />
+            <div className="flex justify-between mt-2 text-sm text-gray-800">
               <span>支出: ¥{oshi.spent.toLocaleString()}</span>
               <span>予算: ¥{oshi.monthlyBudget.toLocaleString()}</span>
             </div>
             {remaining < (oshi.monthlyBudget * 0.1) && (
-              <div className="mt-2 text-xs text-red-500 font-bold flex items-center">
+              <div className="mt-2 text-xs text-orange-600 font-bold flex items-center">
                 ⚠️ 予算残高がピンチです！
               </div>
             )}
@@ -1277,8 +1276,7 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
                   <Button
                     onClick={handleGlobalAnalysis}
                     size="sm"
-                    variant="secondary"
-                    className="bg-orange-50 text-orange-500 hover:bg-orange-100 border-orange-100"
+                    variant="aqua"
                     disabled={isAiLoading || getOshiActions(selectedOshiId).length === 0}
                   >
                     {isAiLoading ? (
@@ -1288,7 +1286,7 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
                     )}
                     おすすめ分析
                   </Button>
-                  <Button onClick={goAddGoods} size="sm"><Plus className="w-4 h-4 mr-1" /> グッズ追加</Button>
+                  <Button variant="orange" onClick={goAddGoods} size="sm"><Plus className="w-4 h-4 mr-1" /> グッズ追加</Button>
                 </div>
               </div>
 
@@ -1320,7 +1318,7 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
                   const priorityColors = {
                     high: 'bg-red-100 text-red-700 border-red-200',
                     medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-                    low: 'bg-green-100 text-green-700 border-green-200'
+                    low: 'bg-aqua-100 text-aqua-700 border-aqua-200'
                   };
                   const priorityLabel = { high: '高', medium: '中', low: '低' };
 
@@ -1332,7 +1330,7 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
                             type="checkbox"
                             checked={item.purchased}
                             onChange={() => togglePurchase(item.id)}
-                            className="w-6 h-6 rounded border-gray-300 text-pink-500 focus:ring-pink-500 cursor-pointer"
+                            className="w-6 h-6 rounded border-gray-300 text-orange-500 focus:ring-orange-500 cursor-pointer"
                           />
                         </div>
                         {item.photo && (
@@ -1357,8 +1355,8 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
                         </div>
                       </div>
                       <div className="flex items-center gap-2 ml-4">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => goEditGoods(item)}><Edit className="w-4 h-4" /></Button>
-                        <button onClick={() => deleteGoods(item.id)} className="text-gray-400 hover:text-red-500 p-1">
+                        <button className="h-8 w-8 flex items-center justify-center text-orange-600" onClick={() => goEditGoods(item)}><Edit className="w-4 h-4" /></button>
+                        <button onClick={() => deleteGoods(item.id)} className="h-8 w-8 flex items-center justify-center text-aqua-600">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -1381,7 +1379,7 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
             <div>
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-bold flex items-center"><Ticket className="w-5 h-5 mr-2" /> イベントリスト</h3>
-                <Button onClick={goAddEvent} size="sm"><Plus className="w-4 h-4 mr-1" /> イベント追加</Button>
+                <Button variant="orange" onClick={goAddEvent} size="sm"><Plus className="w-4 h-4 mr-1" /> イベント追加</Button>
               </div>
 
               <div className="space-y-3">
@@ -1395,7 +1393,7 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full">{event.category}</span>
+                          <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full">{event.category}</span>
                           <h4 className="font-bold text-gray-800">{event.name}</h4>
                         </div>
                         <div className="flex items-center text-sm text-gray-600 mb-2">
@@ -1410,7 +1408,7 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
                           {event.attended && (
                             <div className="flex items-center">
                               <span className="text-gray-500 mr-2">実績:</span>
-                              <span className={`font-bold ${event.actualCost > event.budget ? 'text-red-500' : 'text-green-600'}`}>
+                              <span className={`font-bold ${event.actualCost > event.budget ? 'text-lavender-500' : 'text-lavender-600'}`}>
                                 ¥{event.actualCost.toLocaleString()}
                               </span>
                               <span className="text-xs ml-1 text-gray-400">
@@ -1423,13 +1421,78 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
                       <div className="flex flex-col items-end gap-2">
                         <button
                           onClick={() => toggleEventAttendance(event.id)}
-                          className={`text-xs px-3 py-1 rounded-full border transition-colors flex items-center ${event.attended ? 'bg-green-50 text-green-700 border-green-200' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}
+                          className={`text-xs px-3 py-1 rounded-full border transition-colors flex items-center ${event.attended ? 'bg-lavender-50 text-lavender-700 border-lavender-700' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}
                         >
                           <Check className="w-3 h-3 mr-1" /> {event.attended ? '参加済' : '未参加'}
                         </button>
                         <div className="flex gap-1 mt-2">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => goEditEvent(event)}><Edit className="w-3 h-3" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600" onClick={() => deleteEvent(event.id)}><Trash2 className="w-3 h-3" /></Button>
+                          <Button variant="normal" size="icon" className="h-8 w-8 text-orange-600 hover:text-orange-900" onClick={() => goEditEvent(event)}><Edit className="w-3 h-3" /></Button>
+                          <Button variant="normal" size="icon" className="h-8 w-8 text-aqua-600 hover:text-aqua-900" onClick={() => deleteEvent(event.id)}><Trash2 className="w-3 h-3" /></Button>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )
+        }
+
+        {/* Collab Section */}
+        {
+          oshiDetailActiveTab === 'collab' && (
+            <div>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold flex items-center"><Ticket className="w-5 h-5 mr-2" /> コラボリスト</h3>
+                <Button variant="orange" onClick={goAddCollab} size="sm"><Plus className="w-4 h-4 mr-1" /> コラボ追加</Button>
+              </div>
+
+              <div className="space-y-3">
+                {oshiTokuten.length === 0 && (
+                  <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                    コラボ情報は登録されていません
+                  </div>
+                )}
+                {oshiTokuten.sort((a, b) => new Date(a.date) - new Date(b.date)).map(collab => (
+                  <Card key={collab.id} className={`p-4 transition-colors ${collab.attended ? 'bg-gray-50' : 'bg-white'}`}>
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs px-2 py-0.5 bg-aqua-100 text-aqua-700 rounded-full">{collab.category}</span>
+                          <h4 className="font-bold text-gray-800">{collab.name}</h4>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600 mb-2">
+                          <Calendar className="w-3 h-3 mr-1" /> {collab.date}
+                          <MapPin className="ml-3 w-3 h-3 mr-1" /> {collab.location}
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center">
+                            <span className="text-gray-500 mr-2">予算:</span>
+                            <span className="font-medium">¥{collab.budget.toLocaleString()}</span>
+                          </div>
+                          {collab.attended && (
+                            <div className="flex items-center">
+                              <span className="text-gray-500 mr-2">実績:</span>
+                              <span className={`font-bold ${collab.actualCost > collab.budget ? 'text-orange-500' : 'text-orange-600'}`}>
+                                ¥{collab.actualCost.toLocaleString()}
+                              </span>
+                              <span className="text-xs ml-1 text-gray-400">
+                                ({collab.actualCost > collab.budget ? '+' : ''}{(collab.actualCost - collab.budget).toLocaleString()})
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <button
+                          onClick={() => toggleEventAttendance(tokuten.id)}
+                          className={`text-xs px-3 py-1 rounded-full border transition-colors flex items-center ${tokuten.attended ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}
+                        >
+                          <Check className="w-3 h-3 mr-1" /> {tokuten.attended ? '参加済' : '未参加'}
+                        </button>
+                        <div className="flex gap-1 mt-2">
+                          <Button variant="normal" size="icon" className="h-8 w-8 text-orange-600 hover:text-orange-900" onClick={() => goEditEvent(event)}><Edit className="w-3 h-3" /></Button>
+                          <Button variant="normal" size="icon" className="h-8 w-8 text-aqua-600 hover:text-aqua-900" onClick={() => deleteEvent(event.id)}><Trash2 className="w-3 h-3" /></Button>
                         </div>
                       </div>
                     </div>
@@ -1445,7 +1508,7 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold flex items-center"><Map className="w-5 h-5 mr-2" /> 遠征プランリスト</h3>
-              <Button onClick={() => goTripForm()} size="sm"><Plus className="w-4 h-4 mr-1" /> プラン作成</Button>
+              <Button variant="orange" onClick={() => goTripForm()} size="sm"><Plus className="w-4 h-4 mr-1" /> プラン作成</Button>
             </div>
 
             <div className="grid grid-cols-1 gap-3">
@@ -1460,11 +1523,11 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-bold text-gray-500">{trip.date}</span>
-                        {trip.completed && <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full font-bold">完了</span>}
+                        {trip.completed && <span className="text-[10px] px-1.5 py-0.5 bg-aqua-100 text-aqua-700 rounded-full font-bold">完了</span>}
                       </div>
                       <h4 className="font-bold text-lg text-gray-800">{trip.name}</h4>
                     </div>
-                    <Button variant="ghost" size="sm" className="text-orange-500 font-bold" onClick={() => goTripDetail(trip.id)}>詳細を見る</Button>
+                    <Button variant="normal" size="sm" className="text-orange-600 font-bold" onClick={() => goTripDetail(trip.id)}>詳細を見る</Button>
                   </div>
                   <div className="flex items-center gap-4 text-sm text-gray-600">
                     <span className="flex items-center"><MapPin className="w-3.5 h-3.5 mr-1" />{trip.destinations.length}箇所</span>
@@ -1480,7 +1543,7 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
         {oshiDetailActiveTab === 'actions' && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-black flex items-center liquid-text"><Heart className="w-5 h-5 mr-2 text-pink-400 drop-shadow-sm" /> 推し語り記録</h3>
+              <h3 className="text-lg font-pink-500 flex items-center liquid-text"><Heart className="w-5 h-5 mr-2 text-pink-400 drop-shadow-sm" /> 推し語り記録</h3>
               <div className="flex gap-2">
                 <Button onClick={performAnalysis} size="sm" variant="secondary" className="shadow-orange-200/50"><AlertCircle className="w-4 h-4 mr-1" /> AIで魅力を分析</Button>
                 <Button onClick={goAddAction} size="sm" variant="primary" className="shadow-pink-200/50"><Plus className="w-4 h-4 mr-1" /> 行動を記録</Button>
@@ -1524,18 +1587,18 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
                     })}
                   </div>
                 </Card>
-                <Card className="p-4 bg-white border-emerald-100 h-full">
+                <Card className="p-4 bg-white border-aqua-100 h-full">
                   <h4 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider flex items-center">
-                    <Info className="w-3 h-3 mr-1 text-emerald-500" /> プラス・マイナス感情比率
+                    <Info className="w-3 h-3 mr-1 text-aqua-500" /> プラス・マイナス感情比率
                   </h4>
                   <div className="flex items-center justify-between h-[100px] px-4">
-                    <div className="relative w-24 h-24 rounded-full border-4 border-pink-200 overflow-hidden shadow-lg bg-white/90">
+                    <div className="relative w-24 h-24 rounded-full border-4 border-aqua-200 overflow-hidden shadow-lg bg-white/90">
                       <div
                         className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-pink-500 to-pink-300 transition-all duration-1000 animate-liquid-ripple"
                         style={{ height: `${(oshiActions.filter(a => a.feeling === 'positive').length / oshiActions.length) * 100}%` }}
                       ></div>
                       <div
-                        className="absolute top-0 left-0 w-full bg-gradient-to-b from-blue-600 to-blue-400 transition-all duration-1000"
+                        className="absolute top-0 left-0 w-full bg-gradient-to-b from-aqua-600 to-aqua-400 transition-all duration-1000"
                         style={{ height: `${(oshiActions.filter(a => a.feeling === 'negative').length / oshiActions.length) * 100}%`, top: 0 }}
                       ></div>
                       <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent pointer-events-none"></div>
@@ -1545,8 +1608,8 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
                         <div className="w-2 h-2 bg-pink-400 rounded-full mr-1"></div>
                         プラス: {Math.round((oshiActions.filter(a => a.feeling === 'positive').length / oshiActions.length) * 100)}%
                       </div>
-                      <div className="flex items-center text-emerald-600">
-                        <div className="w-2 h-2 bg-emerald-500 rounded-full mr-1"></div>
+                      <div className="flex items-center text-aqua-600">
+                        <div className="w-2 h-2 bg-aqua-500 rounded-full mr-1"></div>
                         マイナス: {Math.round((oshiActions.filter(a => a.feeling === 'negative').length / oshiActions.length) * 100)}%
                       </div>
                     </div>
@@ -1578,17 +1641,17 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
                 .filter(a => actionsFilterStatus === 'all' ? true : a.feeling === actionsFilterStatus)
                 .sort((a, b) => new Date(b.date) - new Date(a.date))
                 .map(action => (
-                  <Card key={action.id} className={`p-4 border-l-4 ${action.feeling === 'agree' ? 'bg-pink-50 border-pink-400' : 'bg-emerald-50 border-emerald-400'}`}>
+                  <Card key={action.id} className={`p-4 border-l-4 ${action.feeling === 'agree' ? 'bg-pink-50 border-pink-400' : 'bg-aqua-50 border-aqua-400'}`}>
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-bold text-gray-500">{action.date}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm ${action.feeling === 'agree' ? 'bg-pink-500 text-white' : 'bg-emerald-500 text-white'}`}>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm ${action.feeling === 'agree' ? 'bg-pink-500 text-white' : 'bg-aqua-500 text-white'}`}>
                           {action.feeling === 'agree' ? '解釈一致 💖' : '不一致 💙'}
                         </span>
                       </div>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => goEditAction(action)}><Edit className="w-3 h-3" /></Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteAction(action.id)}><Trash2 className="w-3 h-3" /></Button>
+                        <Button variant="normal" size="icon" className="h-7 w-7 text-pink-500 hover:text-pink-800" onClick={() => goEditAction(action)}><Edit className="w-3 h-3" /></Button>
+                        <Button variant="normal" size="icon" className="h-7 w-7 text-aqua-600 hover:text-aqua-900" onClick={() => deleteAction(action.id)}><Trash2 className="w-3 h-3" /></Button>
                       </div>
                     </div>
                     <div className="mb-3">
@@ -1636,7 +1699,7 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
         </div>
         <Card className="p-6 space-y-4">
           <div className="space-y-2">
-            <Label>名前 <span className="text-red-500">*</span></Label>
+            <Label>名前 <span className="text-orange-500">*</span></Label>
             <Input
               value={formData.name}
               onChange={e => setFormData({ ...formData, name: e.target.value })}
@@ -1659,7 +1722,7 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
             />
           </div>
           <div className="space-y-2">
-            <Label>月間予算 (円) <span className="text-red-500">*</span></Label>
+            <Label>月間予算 (円) <span className="text-orange-500">*</span></Label>
             <Input
               type="number"
               min="0"
@@ -1901,7 +1964,7 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
                   </span>
                 </div>
                 <div className="text-xs font-bold text-gray-800 mb-1">
-                  推奨優先度: <span className={aiResult.priority === 'high' ? 'text-pink-400' : (aiResult.priority === 'low' ? 'text-emerald-500' : 'text-orange-500')}>
+                  推奨優先度: <span className={aiResult.priority === 'high' ? 'text-pink-400' : (aiResult.priority === 'low' ? 'text-aqua-500' : 'text-orange-500')}>
                     {aiResult.priority === 'high' ? '高 (絶対欲しい)' : (aiResult.priority === 'low' ? '低 (様子見)' : '中 (予算があれば)')}
                   </span>
                 </div>
@@ -2147,7 +2210,7 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
           </div>
 
           {formData.destinations.map((dest, idx) => (
-            <Card key={dest.id} className="p-4 relative border-l-4 border-l-pink-500">
+            <Card key={dest.id} className="p-4 relative border-l-4 border-l-orange-500">
               <div className="absolute right-2 top-2 flex gap-1">
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => moveDest(idx, -1)} disabled={idx === 0}><ChevronUp className="w-4 h-4" /></Button>
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => moveDest(idx, 1)} disabled={idx === formData.destinations.length - 1}><ChevronDown className="w-4 h-4" /></Button>
@@ -2217,23 +2280,23 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
       <div className="max-w-2xl mx-auto space-y-6 pb-20 animate-ethereal-fade">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshi-detail')}><ArrowLeft className="w-5 h-5" /></Button>
-            <h1 className="text-xl font-bold">{trip.name}</h1>
+            <Button variant="normal" size="icon" onClick={() => setCurrentView('oshi-detail')}><ArrowLeft className="w-5 h-5 text-gray-400 hover:text-gray-600 hover:bg-gray-200/70 rounded-lg transition-colors" /></Button>
+            <h1 className="text-xl font-bold text-orange-600">{trip.name}</h1>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => goTripForm(trip)}><Edit className="w-4 h-4" /></Button>
-            <Button variant="destructive" size="sm" onClick={() => deleteTrip(trip.id)}><Trash2 className="w-4 h-4" /></Button>
+            <Button variant="orange" size="sm" onClick={() => goTripForm(trip)}><Edit className="w-4 h-4" /></Button>
+            <Button variant="aqua" size="sm" onClick={() => deleteTrip(trip.id)}><Trash2 className="w-4 h-4" /></Button>
           </div>
         </div>
 
-        <Card className="p-4 bg-gradient-to-r from-pink-50 to-white border-pink-100 flex justify-between items-center">
+        <Card className="p-4 bg-gradient-to-r from-orange-50 to-white border-orange-100 flex justify-between items-center">
           <div>
             <p className="text-xs text-gray-500 mb-1">遠征日: {trip.date}</p>
-            <p className="text-sm font-bold text-pink-600 bg-white px-2 py-0.5 rounded border border-pink-100 inline-block">総予算: ¥{trip.totalBudget.toLocaleString()}</p>
+            <p className="text-sm font-bold text-orange-600 bg-white px-2 py-0.5 rounded border border-orange-100 inline-block">総予算: ¥{trip.totalBudget.toLocaleString()}</p>
           </div>
           <div className="text-right">
             <p className="text-xs text-gray-400">合計交通費</p>
-            <p className="text-lg font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-100">¥{totalTrans.toLocaleString()}</p>
+            <p className="text-lg font-bold text-aqua-600 bg-aqua-50 px-3 py-1 rounded-full border border-aqua-100">¥{totalTrans.toLocaleString()}</p>
           </div>
         </Card>
 
@@ -2255,12 +2318,12 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
             return (
               <React.Fragment key={dest.id}>
                 <div className="relative z-10 flex items-start gap-4 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-pink-400 text-white flex items-center justify-center font-bold shadow-md shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-orange-400 text-white flex items-center justify-center font-bold shadow-md shrink-0">
                     {idx + 1}
                   </div>
                   <Card className="flex-1 p-4 shadow-sm border-gray-100">
                     <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center text-pink-400 font-bold">
+                      <div className="flex items-center text-orange-400 font-bold">
                         <Clock className="w-4 h-4 mr-1" /> {dest.arrivalTime || '--:--'}
                       </div>
                       <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">{dest.purpose}</span>
@@ -2279,7 +2342,7 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
 
                 {nextDest && (
                   <div className="relative z-10 pl-4 py-4 flex flex-col items-center ml-[20px] mb-4">
-                    <div className="bg-green-50 text-green-700 px-3 py-1 rounded-md text-xs font-bold border border-green-100 flex items-center mb-2">
+                    <div className="bg-aqua-50 text-aqua-700 px-3 py-1 rounded-md text-xs font-bold border border-aqua-100 flex items-center mb-2">
                       <Navigation className="w-3 h-3 mr-1" /> {dest.travelTime || '移動'} (¥{dest.transportFee || 0})
                     </div>
                     <ArrowDown className="w-6 h-6 text-gray-300" />
@@ -2297,7 +2360,14 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
         </div>
 
         <div className="pt-4">
-          <Button className={`w-full ${trip.completed ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`} onClick={() => toggleTripCompletion(trip.id)}>
+          <Button
+            variant="normal"
+            className={`w-full rounded-xl transition-all duration-300 ${trip.completed
+              ? 'bg-orange-100 text-orange-500'
+              : 'bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-[0_6px_18px_rgba(255,140,0,0.35)] hover:shadow-[0_8px_22px_rgba(255,140,0,0.45)]'
+              }`}
+            onClick={() => toggleTripCompletion(trip.id)}
+          >
             {trip.completed ? '完了済みを取り消す' : 'この遠征を完了済みにする'}
           </Button>
         </div>
@@ -2328,10 +2398,10 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
       <div className="max-w-4xl mx-auto space-y-8 animate-ethereal-fade">
         <header className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => setCurrentView('home')}><ArrowLeft className="w-5 h-5" /></Button>
-            <h1 className="text-2xl font-bold text-gray-800">推し語り選択</h1>
+            <Button variant="normal" size="icon" onClick={() => setCurrentView('home')}><ArrowLeft className="w-5 h-5 text-gray-400 hover:text-gray-600 hover:bg-gray-200/70 rounded-lg transition-colors" /></Button>
+            <h1 className="text-2xl font-bold text-pink-600">推し語り選択</h1>
           </div>
-          <Button variant="outline" size="sm" onClick={goManagementDashboard}><Coins className="w-4 h-4 mr-2" /> 管理画面へ</Button>
+          <Button onClick={goManagementDashboard} size="sm" variant="plain" className="border-orange-500 text-orange-600"><Coins className="w-4 h-4 mr-2 text-orange-600" /> 管理画面へ</Button>
         </header>
 
         <div className="text-center space-y-2">
@@ -2344,12 +2414,12 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
             {oshis.map(oshi => (
               <Card
                 key={oshi.id}
-                className="p-6 cursor-pointer hover:border-orange-400 hover:shadow-md transition-all group"
+                className="p-6 cursor-pointer hover:border-pink-400 hover:shadow-md transition-all group"
                 onClick={() => goOshigotariMain(oshi.id)}
               >
                 <div className="flex flex-col items-center text-center space-y-4">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pink-400 to-pink-400 flex items-center justify-center group-hover:from-orange-200 group-hover:to-pink-200 transition-colors animate-floating">
-                    <Heart className="w-10 h-10 text-orange-400 group-hover:scale-110 transition-transform" />
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pink-400 to-pink-400 flex items-center justify-center group-hover:from-pink-200 group-hover:to-pink-200 transition-colors animate-floating">
+                    <Heart className="w-10 h-10 text-pink-400 group-hover:scale-110 transition-transform" />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-gray-800">{oshi.name}</h3>
@@ -2381,8 +2451,8 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
         )}
 
         {showSimpleForm && (
-          <Card className="p-6 max-w-md mx-auto shadow-xl border-orange-100 animate-ethereal-fade">
-            <h3 className="text-lg font-bold mb-4 flex items-center"><Plus className="w-5 h-5 mr-2 text-orange-500" /> かんたん推し登録</h3>
+          <Card className="p-6 max-w-md mx-auto shadow-xl border-pink-100 animate-ethereal-fade">
+            <h3 className="text-lg font-bold mb-4 flex items-center"><Plus className="w-5 h-5 mr-2 text-pink-500" /> かんたん推し登録</h3>
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>名前 <span className="text-red-500">*</span></Label>
@@ -2394,7 +2464,7 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
               </div>
               <div className="flex gap-2 pt-2">
                 <Button variant="ghost" className="flex-1" onClick={() => setShowSimpleForm(false)}>キャンセル</Button>
-                <Button className="flex-1 bg-orange-500 hover:bg-orange-500" onClick={handleSimpleAdd}>登録して語る</Button>
+                <Button className="flex-1 bg-pink-500 hover:bg-pink-500" onClick={handleSimpleAdd}>登録して語る</Button>
               </div>
             </div>
           </Card>
@@ -2414,7 +2484,7 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-bold flex items-center"><Heart className="w-5 h-5 mr-2 text-pink-500" /> 感情記録</h3>
-          <Button onClick={goAddAction} size="sm"><Plus className="w-4 h-4 mr-1" /> 感情を記録</Button>
+          <Button variant="pink" size="sm" onClick={goAddAction}><Plus className="w-4 h-4 mr-1" /> 感情を記録</Button>
         </div>
 
         {/* Action Filters */}
@@ -2440,12 +2510,12 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
             .filter(a => actionsFilterStatus === 'all' ? true : a.feeling === actionsFilterStatus)
             .sort((a, b) => new Date(b.date) - new Date(a.date))
             .map(action => (
-              <Card key={action.id} className={`p-4 border-l-4 ${action.feeling === 'positive' ? 'border-pink-400 bg-pink-50' : 'border-emerald-400 bg-emerald-50'}`}>
+              <Card key={action.id} className={`p-4 border-l-4 ${action.feeling === 'positive' ? 'border-pink-400 bg-pink-50' : 'border-aqua-400 bg-aqua-50'}`}>
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-sm font-bold text-gray-500">{action.date}</span>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => goEditAction(action)}><Edit className="w-3 h-3" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => deleteAction(action.id)}><Trash2 className="w-3 h-3" /></Button>
+                    <Button variant="normal" size="icon" className="h-7 w-7 text-pink-500 hover:text-pink-800" onClick={() => goEditAction(action)}><Edit className="w-3 h-3" /></Button>
+                    <Button variant="normal" size="icon" className="h-7 w-7 text-aqua-600 hover:text-aqua-900" onClick={() => deleteAction(action.id)}><Trash2 className="w-3 h-3" /></Button>
                   </div>
                 </div>
                 <h5 className="font-bold text-gray-800 mb-1">{action.action}</h5>
@@ -2461,17 +2531,17 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
       <div className="space-y-6 animate-ethereal-fade">
         <header className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshigotari-select')} className="rounded-full"><ArrowLeft className="w-5 h-5" /></Button>
-            <h1 className="text-2xl font-black bg-gradient-to-r from-pink-500 to-orange-500 bg-clip-text text-transparent liquid-text">{oshi.name} を語る</h1>
+            <Button variant="normal" size="icon" onClick={() => setCurrentView('oshigotari-select')} className="rounded-full"><ArrowLeft className="w-5 h-5 text-gray-400 hover:text-gray-600 hover:bg-gray-200/70 rounded-lg transition-colors" /></Button>
+            <h1 className="text-2xl font-black text-pink-600">{oshi.name} を語る</h1>
           </div>
-          <Button variant="outline" size="sm" onClick={goManagementDashboard} className="shadow-pink-100/50"><Coins className="w-4 h-4 mr-2" /> 管理画面へ</Button>
+          <Button onClick={goManagementDashboard} size="sm" variant="plain" className="border-orange-500 text-orange-600"><Coins className="w-4 h-4 mr-2 text-orange-600" /> 管理画面へ</Button>
         </header>
 
-        <Card className="p-4 bg-gradient-to-r from-orange-300 to-pink-200 border-orange-100 flex items-center justify-between">
+        <Card className="p-4 bg-gradient-to-r from-pink-200 border-pink-100 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center text-xl shadow-sm">✨</div>
             <div>
-              <p className="text-xs text-orange-500 font-bold uppercase tracking-wider">Now Reviewing</p>
+              <p className="text-xs text-pink-500 font-bold uppercase tracking-wider">Now Reviewing</p>
               <h2 className="text-xl font-bold text-gray-800">{oshi.name}</h2>
             </div>
           </div>
@@ -2480,14 +2550,14 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
 
         {/* Tabs */}
         <Tabs>
-          <TabsList className="grid w-full grid-cols-3 mb-6 bg-orange-50 p-1 rounded-xl">
-            <TabsTrigger value="basic" activeValue={oshigotariMainActiveTab} onClick={() => setOshigotariMainActiveTab('basic')} className={`py-2 rounded-lg transition-all ${oshigotariMainActiveTab === 'basic' ? 'bg-white text-orange-500 shadow-sm' : 'text-orange-400 hover:text-orange-500'}`}>
+          <TabsList className="grid w-full grid-cols-3 mb-6 bg-pink-50 p-1 rounded-xl">
+            <TabsTrigger value="basic" activeValue={oshigotariMainActiveTab} onClick={() => setOshigotariMainActiveTab('basic')} className={`py-2 rounded-lg transition-all ${oshigotariMainActiveTab === 'basic' ? 'bg-white text-pink-500 shadow-sm' : 'text-pink-400 hover:text-pink-500'}`}>
               <Info className="w-4 h-4 mr-2" /> 基本情報
             </TabsTrigger>
             <TabsTrigger value="actions" activeValue={oshigotariMainActiveTab} onClick={() => setOshigotariMainActiveTab('actions')} className={`py-2 rounded-lg transition-all ${oshigotariMainActiveTab === 'actions' ? 'bg-white text-pink-600 shadow-sm' : 'text-pink-400 hover:text-pink-500'}`}>
               <Heart className="w-4 h-4 mr-2" /> 感情記録
             </TabsTrigger>
-            <TabsTrigger value="analysis" activeValue={oshigotariMainActiveTab} onClick={() => setOshigotariMainActiveTab('analysis')} className={`py-2 rounded-lg transition-all ${oshigotariMainActiveTab === 'analysis' ? 'bg-white text-indigo-600 shadow-sm' : 'text-indigo-400 hover:text-indigo-500'}`}>
+            <TabsTrigger value="analysis" activeValue={oshigotariMainActiveTab} onClick={() => setOshigotariMainActiveTab('analysis')} className={`py-2 rounded-lg transition-all ${oshigotariMainActiveTab === 'analysis' ? 'bg-white text-aqua-600 shadow-sm' : 'text-aqua-400 hover:text-aqua-500'}`}>
               <AlertCircle className="w-4 h-4 mr-2" /> AI分析
             </TabsTrigger>
           </TabsList>
@@ -2496,8 +2566,8 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
         {/* Tab Content */}
         <div className="min-h-[400px]">
           {oshigotariMainActiveTab === 'basic' && (
-            <div className="bg-white p-6 rounded-2xl border border-orange-100 shadow-sm">
-              <h3 className="text-lg font-bold text-orange-700 mb-6 flex items-center"><Check className="w-5 h-5 mr-2" /> 一問一答データ</h3>
+            <div className="bg-white p-6 rounded-2xl border border-pink-100 shadow-sm">
+              <h3 className="text-lg font-bold text-pink-700 mb-6 flex items-center"><Check className="w-5 h-5 mr-2" /> 一問一答データ</h3>
               {basicInfo ? (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2518,12 +2588,12 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
                       <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">{basicInfo.answers.q4_visual}</p>
                     </div>
                   </div>
-                  <Button variant="outline" className="w-full border-dashed border-orange-100 text-orange-500 font-bold py-8 rounded-xl hover:bg-orange-50" onClick={() => goBasicInfoForm(oshi.id)}>一問一答を編集・追加する</Button>
+                  <Button variant="outline" className="w-full border-dashed border-pink-100 text-pink-500 font-bold py-8 rounded-xl hover:bg-pink-50" onClick={() => goBasicInfoForm(oshi.id)}>一問一答を編集・追加する</Button>
                 </div>
               ) : (
                 <div className="text-center py-12 space-y-6">
                   <p className="text-gray-500 leading-relaxed">まだ基本情報が入力されていません。<br />まずは一問一答で推しの解像度を上げましょう！</p>
-                  <Button onClick={() => goBasicInfoForm(oshi.id)} className="bg-orange-500 hover:bg-orange-600 px-8 py-6 rounded-xl text-lg font-bold shadow-lg shadow-orange-100">
+                  <Button onClick={() => goBasicInfoForm(oshi.id)} className="bg-pink-500 hover:bg-pink-600 px-8 py-6 rounded-xl text-lg font-bold shadow-lg shadow-pink-100">
                     一問一答を始める
                   </Button>
                 </div>
@@ -2536,13 +2606,15 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
           {oshigotariMainActiveTab === 'analysis' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold flex items-center text-orange-700"><AlertCircle className="w-5 h-5 mr-2" /> AI分析結果</h3>
-                <Button onClick={performAnalysis} size="sm" variant="secondary">再分析する</Button>
+                <h3 className="text-lg font-bold flex items-center text-aqua-600"><AlertCircle className="w-5 h-5 mr-2" /> AI分析結果</h3>
+                <Button onClick={performAnalysis} size="sm" variant="aqua">再分析する</Button>
               </div>
-              <div className="bg-orange-50 p-8 rounded-2xl border border-orange-100 text-center">
-                <p className="text-orange-400">一問一答と行動記録に基づいてAIがあなたの「好き」を言語化します。</p>
-                <img src="https://illustrations.popsy.co/orange/searching.svg" className="w-48 h-48 mx-auto my-4 opacity-50" alt="Analysis" />
-                <Button onClick={performAnalysis} className="mt-4 bg-orange-500 hover:bg-orange-600">分析を開始する</Button>
+              <div className="bg-aqua-50 p-8 rounded-2xl border border-aqua-100 text-center">
+                <p className="text-aqua-400">一問一答と行動記録に基づいてAIがあなたの「好き」を言語化します。</p>
+
+                {/* ここに過去ログを表示したい */}
+
+                <Button variant="plain" onClick={performAnalysis} className="mt-4 bg-white text-aqua-500 border border-aqua-400 font-bold text-base md:text-lg py-5 rounded-xl shadow-md hover:shadow-lg whitespase-nowrap">分析を開始する</Button>
               </div>
             </div>
           )}
@@ -2609,8 +2681,8 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
                 <input type="radio" checked={formData.feeling === 'positive'} onChange={() => setFormData({ ...formData, feeling: 'positive' })} className="text-pink-400 focus:ring-pink-400" />
                 <span className="text-sm">プラス感情（好き・嬉しい・素敵） 💖</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-emerald-50 transition-colors">
-                <input type="radio" checked={formData.feeling === 'negative'} onChange={() => setFormData({ ...formData, feeling: 'negative' })} className="text-emerald-500 focus:ring-blue-500" />
+              <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-aqua-50 transition-colors">
+                <input type="radio" checked={formData.feeling === 'negative'} onChange={() => setFormData({ ...formData, feeling: 'negative' })} className="text-aqua-500 focus:ring-aqua-500" />
                 <span className="text-sm">マイナス感情（苦手・違和感・残念） 💙</span>
               </label>
             </div>
@@ -2749,15 +2821,15 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
 
     return (
       <div className="flex flex-col h-[600px] border-2 border-pink-200 rounded-3xl overflow-hidden bg-white/90 backdrop-blur-sm shadow-2xl">
-        <header className="bg-gradient-to-r from-pink-50 to-orange-50 p-4 border-b border-pink-200 flex justify-between items-center shrink-0">
+        <header className="bg-gradient-to-r from-pink-50 p-4 border-b border-pink-200 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-orange-400 flex items-center justify-center text-xl shadow-lg">✨</div>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 flex items-center justify-center text-xl shadow-lg">✨</div>
             <div>
               <p className="text-[10px] text-pink-600 font-bold uppercase tracking-widest">Recording Action for</p>
               <h2 className="text-lg font-black text-gray-800 liquid-text leading-tight">{oshi.name}</h2>
             </div>
           </div>
-          <Button size="sm" className="bg-gradient-to-r from-orange-500 to-pink-500 text-white">
+          <Button size="sm" className="bg-gradient-to-r from-pink-500 text-white">
             会話を終了
           </Button>
         </header>
@@ -2766,7 +2838,7 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
           {chatMessages.map((msg, idx) => (
             <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm ${msg.role === 'user'
-                ? 'bg-gradient-to-br from-pink-500 to-orange-500 text-white rounded-tr-none'
+                ? 'bg-gradient-to-br from-pink-500 text-white rounded-tr-none'
                 : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
                 }`}>
                 {msg.content}
@@ -2884,19 +2956,19 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
     return (
       <div className="max-w-2xl mx-auto space-y-8 animate-ethereal-fade">
         <div className="text-center space-y-2">
-          <h1 className="text-3xl font-black bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent liquid-text">対話のまとめ</h1>
+          <h1 className="text-3xl font-black bg-gradient-to-r from-pink-500 bg-clip-text text-transparent liquid-text">対話のまとめ</h1>
           <p className="text-gray-500 font-medium">AIとの対話から言語化された理由を確認してください</p>
         </div>
 
-        <Card className="p-8 space-y-6 shadow-xl border-orange-100 bg-white">
+        <Card className="p-8 space-y-6 shadow-xl border-pink-100 bg-white">
           <div className="space-y-4">
-            <h2 className="text-sm font-bold text-orange-400 uppercase tracking-widest flex items-center">
+            <h2 className="text-sm font-bold text-pink-400 uppercase tracking-widest flex items-center">
               <AlertCircle className="w-4 h-4 mr-2" /> AI Summary
             </h2>
-            <div className={`p-6 rounded-2xl border transition-all ${isGenerating ? 'bg-gray-50 border-gray-100' : 'bg-orange-50 border-orange-100'}`}>
+            <div className={`p-6 rounded-2xl border transition-all ${isGenerating ? 'bg-gray-50 border-gray-100' : 'bg-pink-50 border-pink-100'}`}>
               {isGenerating ? (
                 <div className="flex items-center gap-3 text-gray-400">
-                  <div className="w-5 h-5 border-2 border-orange-100 border-t-orange-500 rounded-full animate-spin"></div>
+                  <div className="w-5 h-5 border-2 border-pink-100 border-t-pink-500 rounded-full animate-spin"></div>
                   要約を作成中...
                 </div>
               ) : (
@@ -3008,14 +3080,14 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
           </div>
         </header>
 
-        <Card className="p-8 space-y-8 min-h-[400px] flex flex-col justify-between border-orange-100 shadow-xl">
+        <Card className="p-8 space-y-8 min-h-[400px] flex flex-col justify-between border-pink-100 shadow-xl">
           <div className="space-y-6">
             <div className="space-y-2">
-              <div className="flex justify-between text-xs font-bold text-orange-400 uppercase tracking-wider">
+              <div className="flex justify-between text-xs font-bold text-pink-400 uppercase tracking-wider">
                 <span>Question {qIndex + 1} of {questions.length}</span>
                 <span>{Math.round(progress)}% Complete</span>
               </div>
-              <Progress value={progress} className="h-2" indicatorColor="bg-gradient-to-r from-pink-400 to-orange-400" />
+              <Progress value={progress} className="h-2" indicatorColor="bg-gradient-to-r from-pink-400" />
             </div>
 
             <div className="space-y-4">
@@ -3026,7 +3098,7 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
                 value={answers[currentQ.id]}
                 onChange={e => setAnswers({ ...answers, [currentQ.id]: e.target.value })}
                 placeholder="自由に語ってください..."
-                className="text-lg min-h-[150px] border-orange-100 focus:border-orange-400 transition-colors"
+                className="text-lg min-h-[150px] border-pink-100 focus:border-pink-400 transition-colors"
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && e.ctrlKey) handleNext();
@@ -3046,7 +3118,7 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
               前へ
             </Button>
             <Button
-              className="flex-[2] py-6 bg-orange-500 hover:bg-orange-600 text-lg"
+              className="flex-[2] py-6 bg-pink-500 hover:bg-pink-600 text-lg"
               onClick={handleNext}
             >
               {qIndex === questions.length - 1 ? '完了！' : '次へ'}
@@ -3058,7 +3130,7 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
           {questions.map((_, idx) => (
             <div
               key={idx}
-              className={`w-3 h-1 rounded-full ${idx === qIndex ? 'bg-orange-500 w-6' : idx < qIndex ? 'bg-orange-200' : 'bg-gray-200'} transition-all`}
+              className={`w-3 h-1 rounded-full ${idx === qIndex ? 'bg-pink-500 w-6' : idx < qIndex ? 'bg-pink-200' : 'bg-gray-200'} transition-all`}
             />
           ))}
         </div>
@@ -3073,7 +3145,7 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
     return (
       <div className="max-w-2xl mx-auto space-y-6 pb-20 animate-ethereal-fade">
         <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon" onClick={() => setCurrentView('oshi-detail')} className="rounded-full"><ArrowLeft className="w-5 h-5" /></Button>
+          <Button variant="normal" size="icon" onClick={() => setCurrentView('oshi-detail')} className="rounded-full"><ArrowLeft className="w-5 h-5 text-gray-400 hover:text-gray-600 hover:bg-gray-200/70 rounded-lg transition-colors" /></Button>
           <h1 className="text-xl font-black liquid-text">AI魅力分析結果 ({analysis.date})</h1>
         </div>
 
@@ -3084,20 +3156,20 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
           </div>
 
           <div className="space-y-4">
-            <h2 className="text-xl font-bold text-emerald-600 border-b pb-2">👀 気になる点・苦手な部分</h2>
+            <h2 className="text-xl font-bold text-aqua-600 border-b pb-2">👀 気になる点・苦手な部分</h2>
             <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">{analysis.concerns}</div>
           </div>
 
           <div className="space-y-4 bg-pink-50 p-4 rounded-lg border border-pink-100">
             <h2 className="text-xl font-bold text-gray-800 flex items-center"><Heart className="w-5 h-5 mr-2 text-pink-400" /> 結論：推しのどこが好きなのか</h2>
-            <div className="text-gray-800 font-medium leading-relaxed italic">「{analysis.summary}」</div>
+            <div className="text-gray-800 font-medium leading-relaxed italic">「{analysis.conclusion}」</div>
           </div>
         </Card>
 
         <div className="space-y-4">
           <h2 className="text-lg font-bold flex items-center"><ShoppingBag className="w-5 h-5 mr-2" /> おすすめのキャラ・コンテンツ</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {analysis.recommendations.map((rec, idx) => (
+            {(analysis.recommendations || []).map((rec, idx) => (
               <Card key={idx} className="p-4 bg-white border-gray-100">
                 <h3 className="font-bold text-gray-800 mb-1">{rec.name}</h3>
                 <p className="text-xs text-gray-500">{rec.reason}</p>
@@ -3106,9 +3178,9 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
           </div>
         </div>
 
-        <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
-          <h2 className="text-md font-bold text-orange-700 mb-2 flex items-center"><Info className="w-4 h-4 mr-2" /> 推し活のヒント</h2>
-          <p className="text-sm text-orange-500">{analysis.tips}</p>
+        <div className="bg-pink-50 p-4 rounded-lg border border-pink-100">
+          <h2 className="text-md font-bold text-pink-700 mb-2 flex items-center"><Info className="w-4 h-4 mr-2" /> 推し活のヒント</h2>
+          <p className="text-sm text-pink-500">{analysis.hint}</p>
         </div>
 
         <div className="flex gap-4">
@@ -3145,7 +3217,7 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
             {globalAnalysisData.length > 0 ? (
               globalAnalysisData.map((item) => (
                 <div key={item.id} className="relative">
-                  <div className={`absolute -left-1 top-0 bottom-0 w-1 rounded-full ${item.aiPriority === 'high' ? 'bg-pink-400' : (item.aiPriority === 'low' ? 'bg-emerald-500' : 'bg-orange-500')}`}></div>
+                  <div className={`absolute -left-1 top-0 bottom-0 w-1 rounded-full ${item.aiPriority === 'high' ? 'bg-pink-400' : (item.aiPriority === 'low' ? 'bg-aqua-500' : 'bg-orange-500')}`}></div>
                   <Card className="p-3 border-gray-100 hover:border-orange-100 transition-all bg-white">
                     <div className="flex items-start gap-3">
                       {item.photo && (
@@ -3155,7 +3227,7 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded border ${item.aiPriority === 'high' ? 'bg-pink-50 text-rose-600 border-pink-100' : (item.aiPriority === 'low' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-orange-50 text-orange-100 border-orange-100')}`}>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded border ${item.aiPriority === 'high' ? 'bg-pink-50 text-rose-600 border-pink-100' : (item.aiPriority === 'low' ? 'bg-aqua-50 text-aqua-600 border-aqua-100' : 'bg-orange-50 text-orange-100 border-orange-100')}`}>
                             推奨{item.aiPriority === 'high' ? '高' : (item.aiPriority === 'low' ? '低' : '中')}
                           </span>
                           <span className="text-[9px] bg-orange-50 text-orange-500 px-1.5 py-0.5 rounded border border-orange-100">
@@ -3203,7 +3275,7 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
     <div className="min-h-screen bg-white flex flex-col font-sans text-gray-900">
       {/* Background Decoration */}
       <div className="fixed inset-0 -z-10 pointer-events-none">
-        <div className="absolute top-20 left-10 w-96 h-96 bg-emerald-100/20 rounded-full blur-3xl" />
+        <div className="absolute top-20 left-10 w-96 h-96 bg-aqua-100/20 rounded-full blur-3xl" />
         <div className="absolute bottom-20 right-10 w-80 h-80 bg-pink-100/20 rounded-full blur-3xl" />
         <div className="absolute top-1/2 left-1/3 w-64 h-64 bg-orange-100/20 rounded-full blur-3xl" />
       </div>
@@ -3219,9 +3291,6 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
               推し記録帳
             </span>
           </div>
-          {currentView !== 'home' && (
-            <Button variant="ghost" size="sm" onClick={goHome}>ホームへ</Button>
-          )}
         </div>
       </nav>
 

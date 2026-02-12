@@ -214,3 +214,69 @@
   filter: blur(80px);
   opacity: 0.2;
 }
+
+
+
+
+
+
+
+
+
+/* 読み込み画面全体 */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* 真ん中キラキラ */
+.loading-sparkle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 70%);
+  animation: sparkle 1s infinite;
+}
+
+/* 下から上にカラーが流れる */
+.loading-bar {
+  position: absolute;
+  bottom: -100%;
+  width: 100%;
+  height: 100%;
+  background: var(--loading-color, orange);
+  animation: slide-up 1.5s forwards;
+}
+
+/* アニメーション */
+@keyframes sparkle {
+
+  0%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.7;
+  }
+
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  0% {
+    bottom: -100%;
+  }
+
+  100% {
+    bottom: 0;
+  }
+}
