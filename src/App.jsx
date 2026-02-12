@@ -719,7 +719,8 @@ function App() {
       });
 
       if (!response.ok) {
-        throw new Error('サーバーエラー');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'サーバーエラー');
       }
 
       const data = await response.json();
@@ -729,7 +730,7 @@ function App() {
 
     } catch (error) {
       console.error('AI分析エラー:', error);
-      alert('AI分析に失敗しました');
+      alert('AI分析に失敗しました: ' + error.message);
     } finally {
       setIsAiLoading(false);
     }
