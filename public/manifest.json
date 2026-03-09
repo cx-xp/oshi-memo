@@ -1,6 +1,6 @@
 {
-    "name": "推し活マネージャー",
-    "short_name": "推しマネ",
+    "name": "推し記録帳",
+    "short_name": "推し㌔",
     "description": "推し活の収支・スケジュール・想いを管理するアプリ",
     "start_url": "/",
     "display": "standalone",

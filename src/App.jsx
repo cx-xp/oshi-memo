@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, ArrowLeft, Check, X, Heart, ShoppingBag, Coins, Calendar, MapPin, Ticket, Gift, AlertCircle, Plane, Map, Navigation, ArrowDown, Clock, Train, Bus, Coffee, Info, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
+import { Plus, Edit, Trash2, ArrowLeft, Check, X, Heart, ShoppingBag, Coins, Calendar, MapPin, Ticket, Gift, AlertCircle, Plane, Map, Navigation, ArrowDown, Clock, Train, Bus, Coffee, Info, ChevronUp, ChevronDown, Sparkles, Star, Music, Smile, Zap, Crown, Gem } from 'lucide-react';
 
 // --- UI Components (Simplified shadcn/ui style) ---
 
@@ -15,9 +15,9 @@ const Button = ({ children, variant = "primary", size = "default", className = "
     normal: "",
 
     // --- 新規追加: ホーム画面用ボタン ---
-    orange: "bg-orange-100 text-orange-600 hover:bg-orange-200 border-orange-200",
-    pink: "bg-pink-100 text-pink-600 hover:bg-pink-200 border-pink-200",
-    aqua: "bg-aqua-100 text-aqua-600 hover:bg-aqua-200 border-aqua-200",
+    orange: "bg-orange-100 text-orange-600 hover:bg-orange-200 hover:text-orange-700 border border-orange-200 shadow-sm",
+    pink: "bg-pink-100 text-pink-600 hover:bg-pink-200 hover:text-pink-700 border border-pink-200 shadow-sm",
+    aqua: "bg-aqua-100 text-aqua-600 hover:bg-aqua-200 hover:text-aqua-700 border border-aqua-200 shadow-sm",
   };
 
   const sizes = {
@@ -98,60 +98,33 @@ const TabsTrigger = ({ value, activeValue, onClick, children, className = "", ac
 // --- AI Utility Functions ---
 
 /**
- * Parse JSON from AI response with multiple fallback patterns
+ * Handle API errors for server-proxied AI requests
  */
-const parseAiJsonResponse = (text) => {
-  if (!text) throw new Error('AI応答が空です');
-
-  // Try multiple patterns
-  const patterns = [
-    /```json\s*([\s\S]*?)\s*```/,  // ```json ... ```
-    /```\s*([\s\S]*?)\s*```/,       // ``` ... ```
-    /(\{[\s\S]*\})/,                // { ... }
-    /(\[[\s\S]*\])/                 // [ ... ]
-  ];
-
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match) {
-      try {
-        const jsonStr = match[1] || match[0];
-        return JSON.parse(jsonStr);
-      } catch (e) {
-        continue;
-      }
-    }
-  }
-
-  throw new Error('AIの応答からJSONを抽出できませんでした。もう一度お試しください。');
-};
-
-/**
- * Handle API errors with user-friendly messages
- */
-const handleApiError = (error, response) => {
+const handleApiError = async (error, response) => {
   console.error('API Error:', error, response);
 
+  // サーバーからのレスポンスがない場合（ネットワークエラーなど）
   if (!response) {
     return {
       title: 'ネットワークエラー',
-      message: 'インターネット接続を確認してください。',
+      message: 'サーバーに接続できません。サーバーが起動しているか確認してください。',
       canRetry: true
     };
   }
 
+  // サーバー経由のステータスに応じた分岐
   switch (response.status) {
     case 401:
       return {
-        title: 'APIキーエラー',
-        message: 'APIキーが無効です。ブラウザのコンソールで以下を実行してください:\nlocalStorage.setItem("anthropic_api_key", "あなたのAPIキー")',
+        title: '認証エラー',
+        message: 'サーバー側でAPIキーが設定されていないか無効です。環境変数 ANTHROPIC_API_KEY を確認してください。',
         canRetry: false
       };
 
     case 429:
       return {
         title: 'レート制限',
-        message: 'APIの使用制限に達しました。しばらく待ってから再試行してください。',
+        message: 'AI分析の呼び出しが多すぎます。しばらく待ってから再試行してください。',
         canRetry: true
       };
 
@@ -160,18 +133,19 @@ const handleApiError = (error, response) => {
     case 503:
       return {
         title: 'サーバーエラー',
-        message: 'Anthropicのサーバーで一時的な問題が発生しています。しばらく待ってから再試行してください。',
+        message: '分析サーバーで一時的な問題が発生しました。しばらく待ってから再試行してください。',
         canRetry: true
       };
 
     default:
       return {
         title: 'エラー',
-        message: error.message || '予期しないエラーが発生しました。',
+        message: error.message || '予期しないサーバーエラーが発生しました。',
         canRetry: true
       };
   }
 };
+
 
 /**
  * Validate data availability for AI analysis
@@ -198,6 +172,11 @@ function App() {
 
   const [loading, setLoading] = useState(false);
   const [nextPage, setNextPage] = useState(null);
+
+  // Tab Name Enforcement
+  useEffect(() => {
+    document.title = "推し記録帳";
+  }, []);
 
   const handleNavigate = (page) => {
     setNextPage(page);
@@ -387,14 +366,14 @@ function App() {
       answers: {
         q1_name: "星野さくら（さくちゃん）",
         q2_activity: "ソロアイドル、モデル",
-        q3_birthday: "2005年4月12日",
-        q4_visual: "ポニーテール、158cm、透明感のある雰囲気",
-        q5_personality: "誠実、天然、努力家",
-        q6_anniversary: "2024年の夏フェス",
-        q7_discovery: "SNSで流れてきたダンス動画",
-        q8_works: "1stシングル「サクラ・スマイル」",
-        q9_sns: "https://example.com/oshi_sns",
-        q10_catchphrase: "世界を優しく照らす、唯一無二の桜色"
+        q3_birthday: "2005-04-12",
+        q4_bloodType: "A",
+        q5_appearance: "ポニーテール、158cm、透明感のある雰囲気",
+        q6_personality: "cheerful",
+        q7_startDate: "2024-08-15",
+        q8_location: "東京",
+        q9_color: "pink",
+        q10_icon: "heart"
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -431,6 +410,7 @@ function App() {
   const [actionsFilterStatus, setActionsFilterStatus] = useState('all');
   const [showGlobalAnalysis, setShowGlobalAnalysis] = useState(false);
   const [globalAnalysisData, setGlobalAnalysisData] = useState([]);
+  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [aiUsageCount, setAiUsageCount] = useState(0);
 
   // Data helpers
@@ -766,7 +746,12 @@ function App() {
     setCurrentView('action-form');
   };
 
+  // ここに追加
+  const [analysisResult, setAnalysisResult] = useState(null); // AI分析結果
+
+  // 分析結果を表示する関数
   const goAnalysisResult = (analysis) => {
+    setAnalysisResult(analysis); // ここで分析結果を state に保存
     setSelectedAnalysisId(analysis.id);
     setCurrentView('analysis-result');
   };
@@ -910,8 +895,8 @@ function App() {
             <h1 className="text-2xl font-bold text-orange-600">情報管理</h1>
           </div>
           <div className="flex gap-2">
-            <Button onClick={goOshigotariSelect} size="sm" variant="plain" className="border-pink-400 text-pink-500 "><Heart className="w-4 h-4 mr-2 text-pink-500" /> 推し語りへ</Button>
-            <Button onClick={goAddOshi} size="sm" variant="plain" className="border-orange-500 text-orange-600 "><Plus className="w-4 h-4 mr-2 text-orange-600" /> 推し追加</Button>
+            <Button onClick={goOshigotariSelect} size="sm" variant="plain" className="border-pink-400 text-pink-500 hover:bg-pink-50 "><Heart className="w-4 h-4 mr-2 text-pink-500" /> 推し語りへ</Button>
+            <Button onClick={goAddOshi} size="sm" variant="plain" className="border-orange-500 text-orange-600 hover:bg-orange-50 "><Plus className="w-4 h-4 mr-2 text-orange-600" /> 推し追加</Button>
           </div>
         </header>
 
@@ -936,7 +921,7 @@ function App() {
                 </div>
               </div>
               <div className="mt-4">
-                <Progress value={totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0} className="h-2 bg-gray-200" indicatorColor="bg-gradient-to-r from-orange-300 to-orange-600" />
+                <Progress value={totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0} className="h-2 rounded-full bg-white/30 backdrop-blur-sm shadow-inner" indicatorColor="bg-gradient-to-r from-orange-400 to-orange-600" />
               </div>
             </div>
 
@@ -962,7 +947,7 @@ function App() {
                             ¥{(oshi.monthlyBudget - oshi.spent).toLocaleString()}
                           </span>
                         </div>
-                        <Progress value={percent} className="h-2" indicatorColor="bg-orange-300" />
+                        <Progress value={percent} className="h-2 rounded-full bg-white/30 backdrop-blur-sm shadow-inner" indicatorColor="bg-orange-400" />
                       </div>
                     </Card>
                   );
@@ -1070,85 +1055,65 @@ function App() {
   };
 
   const handleGlobalAnalysis = async () => {
-    const unpurchased = goods.filter(g => g.oshiId === selectedOshiId && !g.purchased);
-    if (unpurchased.length === 0) return alert('未購入のグッズがありません');
+    if (!selectedOshiId) return;
+    const unpurchasedGoods = goods.filter(g => g.oshiId === selectedOshiId && !g.purchased);
+
+    if (unpurchasedGoods.length === 0) {
+      return alert("未購入グッズがありません。");
+    }
 
     setIsAiLoading(true);
+
     try {
       const oshi = getOshi(selectedOshiId);
-      const oshiActions = getOshiActions(selectedOshiId);
       const oshiBasicInfo = basicInfos.find(bi => bi.oshiId === selectedOshiId);
+      const actions = getOshiActions(selectedOshiId);
 
-      const prompt = `あなたは推し活アドバイザーです。
-未購入のグッズリストを、推しの基本情報とこれまでの感情記録（プラス・マイナス）をもとに一括分析し、
-それぞれの購入優先度を提案してください。
-
-【推しの名前】: ${oshi.name}
-【最近の感情記録】
-${oshiActions.slice(-10).map(a => `- ${a.feeling === 'positive' ? 'プラス' : 'マイナス'}: ${a.action} (${a.reason})`).join('\n')}
-
-【未購入グッズリスト】
-${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円, メモ: ${g.memo || 'なし'}`).join('\n')}
-
-【出力要求】
-各グッズに対して、以下のJSON形式を含む配列のみで回答してください：
-[
-  {
-    "id": "グッズのID",
-    "aiPriority": "high" | "medium" | "low",
-    "aiScore": 0から100の数値,
-    "aiReason": "具体的な理由（80文字程度）"
-  },
-  ...
-]`;
-
-      const apiKey = localStorage.getItem('anthropic_api_key') || 'YOUR_API_KEY_HERE';
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("/api/analyze-goods", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerously-allow-browser": "true"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-3-sonnet-20240229",
-          max_tokens: 2000,
-          messages: [{ role: 'user', content: prompt }]
+          oshiName: oshi.name,
+          basicInfo: oshiBasicInfo?.answers || {},
+          actions: actions,
+          unpurchasedGoods: unpurchasedGoods
         })
       });
 
       if (!response.ok) {
-        const errorInfo = handleApiError(new Error(`HTTP ${response.status}`), response);
-        throw new Error(errorInfo.message);
+        const text = await response.text();
+        throw new Error(`AI分析エラー: ${text}`);
       }
 
-      const data = await response.json();
-      const text = data.content[0].text;
+      const result = await response.json(); // server.js が返す配列
 
-      // Use robust JSON parser
-      const results = parseAiJsonResponse(text);
+      // ここで AnalysisResultView 用に整形
+      const formatted = {
+        // id, date will be set by saveAnalysis
+        attraction: "",    // 空でOK
+        concerns: "",
+        conclusion: "",
+        recommendations: result.map(r => ({
+          name: unpurchasedGoods.find(g => g.id === r.id)?.name || "未設定",
+          reason: r.aiReason,
+          priority: r.aiPriority,
+          score: r.aiScore
+        })),
+        hint: ""
+      };
 
-      // Merge AI results back to the original goods data for the modal
-      const mergedResults = unpurchased.map(g => {
-        const aiData = results.find(r => r.id === g.id);
-        return {
-          ...g,
-          aiScore: aiData?.aiScore || 50,
-          aiPriority: aiData?.aiPriority || 'medium',
-          aiReason: aiData?.aiReason || "分析結果が得られませんでした。"
-        };
-      });
+      // state に保存して画面遷移
+      saveAnalysis(formatted);
 
-      setGlobalAnalysisData(mergedResults.sort((a, b) => b.aiScore - a.aiScore));
-      setShowGlobalAnalysis(true);
-    } catch (error) {
-      console.error('Global Analysis Error:', error);
-      alert('一括分析に失敗しました:\n' + error.message);
+    } catch (err) {
+      console.error(err);
+      alert("AI分析に失敗しました:\n" + err.message);
     } finally {
       setIsAiLoading(false);
     }
   };
+
+
 
   const applyAllAiPriorities = () => {
     const updatedGoods = goods.map(g => {
@@ -1205,11 +1170,11 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
             <Button variant="normal" size="icon" onClick={() => setCurrentView('management-dashboard')} className="rounded-full"><ArrowLeft className="w-5 h-5 text-gray-400 hover:text-gray-600 hover:bg-gray-200/70 rounded-lg transition-colors" /></Button>
             <h1 className="text-2xl font-bold text-orange-600">{oshi.name} 詳細</h1>
           </div>
-          <Button onClick={goOshigotariSelect} size="sm" variant="plain" className="border-pink-400 text-pink-500 "><Heart className="w-4 h-4 mr-2 text-pink-500" /> 推し語りへ</Button>
+          <Button onClick={goOshigotariSelect} size="sm" variant="plain" className="border-pink-400 text-pink-500 hover:bg-pink-50"><Heart className="w-4 h-4 mr-2 text-pink-500" /> 推し語りへ</Button>
         </div>
 
         {/* Oshi Info Header */}
-        <Card className="p-6 border-orange-100">
+        <div className="p-6 rounded-xl border border-orange-200">
           <div className="flex justify-between items-start">
             <div>
               <h2 variant="normal" className="text-2xl font-bold flex items-center gap-2 text-gray-800">
@@ -1241,7 +1206,7 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
               </div>
             )}
           </div>
-        </Card>
+        </div>
 
 
 
@@ -1278,9 +1243,9 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
                     onClick={handleGlobalAnalysis}
                     size="sm"
                     variant="aqua"
-                    disabled={isAiLoading || getOshiActions(selectedOshiId).length === 0}
+                    disabled={loadingAnalysis || getOshiActions(selectedOshiId).length === 0}
                   >
-                    {isAiLoading ? (
+                    {loadingAnalysis ? (
                       <span className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin mr-1"></span>
                     ) : (
                       <Sparkles className="w-4 h-4 mr-1" />
@@ -1290,6 +1255,50 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
                   <Button variant="orange" onClick={goAddGoods} size="sm"><Plus className="w-4 h-4 mr-1" /> グッズ追加</Button>
                 </div>
               </div>
+
+              {/* Loading State */}
+              {loadingAnalysis && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-8 mb-4 flex flex-col items-center justify-center animate-pulse">
+                  <div className="w-8 h-8 border-4 border-orange-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+                  <p className="text-orange-600 font-bold">分析中…</p>
+                </div>
+              )}
+
+              {/* Analysis Results */}
+              {showGlobalAnalysis && globalAnalysisData.length > 0 && !loadingAnalysis && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4 animate-in slide-in-from-top-2">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-bold text-orange-700 flex items-center"><Sparkles className="w-4 h-4 mr-2" /> AIおすすめ優先度</h4>
+                    <Button size="sm" onClick={applyAllAiPriorities} className="bg-orange-500 hover:bg-orange-600 text-white">
+                      すべて適用する
+                    </Button>
+                  </div>
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                    {globalAnalysisData.map(item => {
+                      const goodsItem = goods.find(g => g.id === item.id);
+                      // Safety check: if goods item is not found, skip rendering this result
+                      if (!goodsItem) return null;
+
+                      return (
+                        <div key={item.id} className="bg-white p-3 rounded border border-orange-100 shadow-sm mb-2">
+                          <div className="font-bold text-gray-800 text-sm mb-1">
+                            {goodsItem.name || '不明なグッズ'}：{item.aiPriority || '不明'}
+                          </div>
+                          <div className="text-sm font-bold text-orange-600 mb-1">
+                            {item.aiScore !== undefined ? item.aiScore : '-'}%
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            {item.aiReason || '理由なし'}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2 text-right">
+                    <button className="text-xs text-gray-500 underline" onClick={() => setShowGlobalAnalysis(false)}>閉じる</button>
+                  </div>
+                </div>
+              )}
 
               {/* Filters */}
               <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
@@ -1696,7 +1705,7 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
       <div className="max-w-2xl mx-auto space-y-6 animate-ethereal-fade">
         <div className="flex items-center space-x-2">
           <Button variant="ghost" size="icon" onClick={() => setCurrentView('home')} className="rounded-full"><X className="w-5 h-5" /></Button>
-          <h1 className="text-xl font-black liquid-text">{editingItem ? '推しを編集' : '推しを登録'}</h1>
+          <h1 variant="normal" className="text-xl font-bold text-orange-500">{editingItem ? '推しを編集' : '推しを登録'}</h1>
         </div>
         <Card className="p-6 space-y-4">
           <div className="space-y-2">
@@ -1732,8 +1741,8 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
             />
           </div>
           <div className="pt-4 flex gap-3">
-            <Button className="flex-1" variant="outline" onClick={() => setCurrentView('home')}>キャンセル</Button>
-            <Button className="flex-1" onClick={handleSubmit}>保存する</Button>
+            <Button className="flex-1 text-gray-700 border border-orange-500 hover:bg-orange-50" variant="normal" onClick={() => setCurrentView('home')}>キャンセル</Button>
+            <Button variant="normal" className="flex-1 rounded-xl transition-all duration-300 bg-orange-100 text-orange-500 bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-[0_6px_18px_rgba(255,140,0,0.35)] hover:shadow-[0_8px_22px_rgba(255,140,0,0.45)]" onClick={handleSubmit}>保存する</Button>
           </div>
         </Card>
       </div>
@@ -1749,6 +1758,8 @@ ${unpurchased.map(g => `- ID: ${g.id}, 名前: ${g.name}, 価格: ${g.price}円,
       memo: '',
       photo: null
     });
+
+
 
     const handleFileChange = (e) => {
       const file = e.target.files[0];
@@ -1834,7 +1845,7 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
           : [{ type: "text", text: prompt }];
 
         const apiKey = localStorage.getItem('anthropic_api_key') || 'YOUR_API_KEY_HERE';
-        const response = await fetch("https://api.anthropic.com/v1/messages", {
+        const response = await fetch("http://localhost:3001/analyze", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -2265,7 +2276,7 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
 
         <div className="flex gap-4">
           <Button variant="outline" className="flex-1" onClick={() => setCurrentView('oshi-detail')}>キャンセル</Button>
-          <Button className="flex-1" onClick={handleSubmit}>プランを保存</Button>
+          <Button variant="plain" className="flex-1" onClick={handleSubmit}>プランを保存</Button>
         </div>
       </div>
     );
@@ -2395,6 +2406,37 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
       goOshigotariMain(newOshi.id);
     };
 
+    // Helper to get styles based on color
+    const getColorStyles = (color) => {
+      const colors = {
+        pink: { bg: 'from-pink-400 to-pink-400', text: 'text-pink-400', border: 'hover:border-pink-400', hoverBg: 'group-hover:from-pink-200 group-hover:to-pink-200', icon: 'text-pink-400' },
+        red: { bg: 'from-red-500 to-red-500', text: 'text-red-500', border: 'hover:border-red-500', hoverBg: 'group-hover:from-red-300 group-hover:to-red-300', icon: 'text-red-500' },
+        blue: { bg: 'from-blue-500 to-blue-500', text: 'text-blue-500', border: 'hover:border-blue-500', hoverBg: 'group-hover:from-blue-300 group-hover:to-blue-300', icon: 'text-blue-500' },
+        aqua: { bg: 'from-aqua-500 to-aqua-500', text: 'text-aqua-500', border: 'hover:border-aqua-500', hoverBg: 'group-hover:from-aqua-300 group-hover:to-aqua-300', icon: 'text-aqua-500' },
+        yellow: { bg: 'from-yellow-400 to-yellow-400', text: 'text-yellow-500', border: 'hover:border-yellow-400', hoverBg: 'group-hover:from-yellow-200 group-hover:to-yellow-200', icon: 'text-yellow-500' },
+        lavender: { bg: 'from-lavender-500 to-lavender-500', text: 'text-lavender-500', border: 'hover:border-lavender-500', hoverBg: 'group-hover:from-lavender-300 group-hover:to-lavender-300', icon: 'text-lavender-500' },
+        orange: { bg: 'from-orange-500 to-orange-500', text: 'text-orange-500', border: 'hover:border-orange-500', hoverBg: 'group-hover:from-orange-300 group-hover:to-orange-300', icon: 'text-orange-500' },
+        gray: { bg: 'from-gray-700 to-gray-700', text: 'text-gray-700', border: 'hover:border-gray-700', hoverBg: 'group-hover:from-gray-500 group-hover:to-gray-500', icon: 'text-gray-700' },
+        white: { bg: 'from-gray-100 to-gray-100 border border-gray-300', text: 'text-gray-400', border: 'hover:border-gray-300', hoverBg: 'group-hover:from-white group-hover:to-white', icon: 'text-gray-400' },
+        cyan: { bg: 'from-cyan-400 to-cyan-400', text: 'text-cyan-500', border: 'hover:border-cyan-400', hoverBg: 'group-hover:from-cyan-200 group-hover:to-cyan-200', icon: 'text-cyan-500' },
+      };
+      return colors[color] || colors.pink;
+    };
+
+    const getIconComponent = (iconName) => {
+      const icons = {
+        heart: Heart,
+        star: Star,
+        music: Music,
+        sparkles: Sparkles,
+        smile: Smile,
+        crown: Crown,
+        gem: Gem,
+        zap: Zap,
+      };
+      return icons[iconName] || Heart;
+    };
+
     return (
       <div className="max-w-4xl mx-auto space-y-8 animate-ethereal-fade">
         <header className="flex items-center justify-between gap-4">
@@ -2402,7 +2444,7 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
             <Button variant="normal" size="icon" onClick={() => setCurrentView('home')}><ArrowLeft className="w-5 h-5 text-gray-400 hover:text-gray-600 hover:bg-gray-200/70 rounded-lg transition-colors" /></Button>
             <h1 className="text-2xl font-bold text-pink-600">推し語り選択</h1>
           </div>
-          <Button onClick={goManagementDashboard} size="sm" variant="plain" className="border-orange-500 text-orange-600"><Coins className="w-4 h-4 mr-2 text-orange-600" /> 管理画面へ</Button>
+          <Button onClick={goManagementDashboard} size="sm" variant="plain" className="border-orange-500 text-orange-600 hover:bg-orange-50 "><Coins className="w-4 h-4 mr-2 text-orange-600" /> 管理画面へ</Button>
         </header>
 
         <div className="text-center space-y-2">
@@ -2412,23 +2454,32 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
 
         {oshis.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {oshis.map(oshi => (
-              <Card
-                key={oshi.id}
-                className="p-6 cursor-pointer hover:border-pink-400 hover:shadow-md transition-all group"
-                onClick={() => goOshigotariMain(oshi.id)}
-              >
-                <div className="flex flex-col items-center text-center space-y-4">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pink-400 to-pink-400 flex items-center justify-center group-hover:from-pink-200 group-hover:to-pink-200 transition-colors animate-floating">
-                    <Heart className="w-10 h-10 text-pink-400 group-hover:scale-110 transition-transform" />
+            {oshis.map(oshi => {
+              const basicInfo = basicInfos.find(bi => bi.oshiId === oshi.id);
+              const colorKey = basicInfo?.answers?.q9_color || 'pink';
+              const iconKey = basicInfo?.answers?.q10_icon || 'heart';
+
+              const styles = getColorStyles(colorKey);
+              const IconComponent = getIconComponent(iconKey);
+
+              return (
+                <Card
+                  key={oshi.id}
+                  className={`p-6 cursor-pointer hover:shadow-md transition-all group border-2 border-transparent ${styles.border}`}
+                  onClick={() => goOshigotariMain(oshi.id)}
+                >
+                  <div className="flex flex-col items-center text-center space-y-4">
+                    <div className={`w-20 h-20 rounded-full bg-gradient-to-br flex items-center justify-center transition-colors animate-floating ${styles.bg} ${styles.hoverBg}`}>
+                      <IconComponent className={`w-10 h-10 text-white group-hover:scale-110 transition-transform`} />
+                    </div>
+                    <div>
+                      <h3 className={`text-xl font-bold ${styles.text}`}>{oshi.name}</h3>
+                      <p className="text-sm text-gray-500">{oshi.genre}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-800">{oshi.name}</h3>
-                    <p className="text-sm text-gray-500">{oshi.genre}</p>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
             <Card
               className="p-6 flex flex-col items-center justify-center border-dashed border-2 text-gray-400 hover:text-pink-400 hover:border-pink-300 transition-colors cursor-pointer"
               onClick={() => setShowSimpleForm(true)}
@@ -2535,7 +2586,7 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
             <Button variant="normal" size="icon" onClick={() => setCurrentView('oshigotari-select')} className="rounded-full"><ArrowLeft className="w-5 h-5 text-gray-400 hover:text-gray-600 hover:bg-gray-200/70 rounded-lg transition-colors" /></Button>
             <h1 className="text-2xl font-black text-pink-600">{oshi.name} を語る</h1>
           </div>
-          <Button onClick={goManagementDashboard} size="sm" variant="plain" className="border-orange-500 text-orange-600"><Coins className="w-4 h-4 mr-2 text-orange-600" /> 管理画面へ</Button>
+          <Button onClick={goManagementDashboard} size="sm" variant="plain" className="border-orange-500 text-orange-600 hover:bg-orange-50"><Coins className="w-4 h-4 mr-2 text-orange-600" /> 管理画面へ</Button>
         </header>
 
         <Card className="p-4 bg-gradient-to-r from-pink-200 border-pink-100 flex items-center justify-between">
@@ -2573,20 +2624,47 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q1: 推しの名前は？</h4>
+                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q1: 推しの名前</h4>
                       <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">{basicInfo.answers.q1_name}</p>
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q2: 推しは何をしている人？</h4>
+                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q2: 活動内容</h4>
                       <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">{basicInfo.answers.q2_activity}</p>
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q3: 推しの誕生日は？</h4>
+                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q3: 誕生日</h4>
                       <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">{basicInfo.answers.q3_birthday}</p>
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q4: 推しの外見的特徴は？</h4>
-                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">{basicInfo.answers.q4_visual}</p>
+                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q4: 血液型</h4>
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">{basicInfo.answers.q4_bloodType}</p>
+                    </div>
+                    <div className="col-span-full">
+                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q5: 外見的特徴</h4>
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">{basicInfo.answers.q5_appearance}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q6: 性格</h4>
+                      {/* Map value to label if possible, or just show value for now. The value is stored as 'cool', etc. */}
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                        {basicInfo.answers.q6_personality}
+                      </p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q7: 推し始めた日</h4>
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">{basicInfo.answers.q7_startDate}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q8: 活動拠点</h4>
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">{basicInfo.answers.q8_location}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q9: イメージカラー</h4>
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">{basicInfo.answers.q9_color}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-400 mb-1">Q10: イメージアイコン</h4>
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100">{basicInfo.answers.q10_icon}</p>
                     </div>
                   </div>
                   <Button variant="outline" className="w-full border-dashed border-pink-100 text-pink-500 font-bold py-8 rounded-xl hover:bg-pink-50" onClick={() => goBasicInfoForm(oshi.id)}>一問一答を編集・追加する</Button>
@@ -2615,7 +2693,7 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
 
                 {/* ここに過去ログを表示したい */}
 
-                <Button variant="plain" onClick={performAnalysis} className="mt-4 bg-white text-aqua-500 border border-aqua-400 font-bold text-base md:text-lg py-5 rounded-xl shadow-md hover:shadow-lg whitespase-nowrap">分析を開始する</Button>
+                <Button variant="plain" onClick={performAnalysis} className="mt-4 bg-white text-aqua-600 border border-aqua-500 hover:bg-aqua-50 font-bold text-base md:text-lg py-5 rounded-xl shadow-md hover:shadow-lg whitespase-nowrap">分析を開始する</Button>
               </div>
             </div>
           )}
@@ -2689,8 +2767,8 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
             </div>
           </div>
           <div className="pt-4 flex gap-3">
-            <Button className="flex-1" variant="outline" onClick={() => setCurrentView('oshigotari-main')}>キャンセル</Button>
-            <Button className="flex-1" onClick={() => {
+            <Button className="flex-1 text-gray-800 border border-pink-500" variant="normal" onClick={() => setCurrentView('oshigotari-main')}>キャンセル</Button>
+            <Button variant="normal" className="flex-1 rounded-xl transition-all duration-300 bg-pink-100 text-pink-500 bg-gradient-to-r from-pink-400 to-pink-500 text-white shadow-[0_6px_18px_rgba(255,0,100,0.3)] hover:shadow-[0_8px_22px_rgba(255,0,100,0.45)]" onClick={() => {
               if (!formData.action) return alert('行動・発言を入力してください');
               setEditingItem(formData);
               setCurrentView('chat-session');
@@ -2703,170 +2781,212 @@ ${formData.memo ? `メモ: ${formData.memo}` : ''}
 
   const ChatSessionView = () => {
     const oshi = getOshi(selectedOshiId);
+    const basicInfo = basicInfos.find(bi => bi.oshiId === selectedOshiId);
     const [inputValue, setInputValue] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const scrollRef = React.useRef(null);
+    const [chatMessages, setChatMessages] = useState([]);
+    const [error, setError] = useState(null);
 
-    const callClaudeAPI = async (systemPrompt, messages) => {
-      const apiKey = localStorage.getItem('anthropic_api_key') || 'YOUR_API_KEY_HERE';
-      if (apiKey === 'YOUR_API_KEY_HERE') {
-        throw new Error('APIキーが設定されていません。ブラウザのコンソールで localStorage.setItem("anthropic_api_key", "あなたのキー") を実行してください。');
-      }
+    // Safety check: if accessed without editingItem or oshi
+    if (!editingItem || !oshi) {
+      return (
+        <div className="flex flex-col items-center justify-center h-64 space-y-4 animate-in fade-in">
+          <p className="text-red-500 font-bold">データが見つかりません。最初からやり直してください。</p>
+          <Button onClick={() => setCurrentView('oshigotari-main')}>戻る</Button>
+        </div>
+      );
+    }
 
-      console.log('--- AI API Call ---');
-      console.log('Messages Count:', messages.length);
-      console.log('System Prompt Snippet:', systemPrompt.substring(0, 100) + '...');
-
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerously-allow-browser": "true"
-        },
-        body: JSON.stringify({
-          model: "claude-3-sonnet-20240229", // Latest stable sonnet
-          max_tokens: 2000,
-          system: systemPrompt,
-          messages: messages
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        if (response.status === 401) throw new Error('API認証エラーです。APIキーを確認してください。');
-        if (response.status === 429) throw new Error('利用制限に達しました。しばらく待ってから再試行してください。');
-        throw new Error(errorData.error?.message || `API Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('API Response:', data);
-
-      if (!data.content || !data.content[0]) throw new Error('Invalid response format');
-      return data.content[0].text;
-    };
-
-    const getSystemPrompt = () => {
-      const basicInfo = basicInfos.find(bi => bi.oshiId === selectedOshiId);
-      return `あなたは共感的なカウンセラーです。
-ユーザーが記録した推し「${oshi.name}」の行動について、
-なぜその行動が「${editingItem.feeling === 'positive' ? 'プラス感情' : 'マイナス感情'}」
-と感じたのか、対話を通して一緒に探っていきます。
-
-【記録された行動】
-${editingItem.action}
-
-【状況・背景】
-${editingItem.context || '特になし'}
-
-【推しの基本情報】
-${JSON.stringify(basicInfo?.answers || {}, null, 2)}
-
-【対話の進め方】
-1. まず、その行動のどこに注目したかを尋ねる
-2. 過去の似た経験や感情を思い出してもらう
-3. 推しの性格や特徴と照らし合わせる
-4. 「なぜそう感じたのか」を言語化する手助けをする
-
-質問は1つずつ、短く。共感的で優しい口調で。
-ユーザーが自分の言葉で気づけるようサポートしてください。`;
-    };
-
-    // Initial message from AI
-    useEffect(() => {
-      if (chatMessages.length === 0) {
-        const initChat = async () => {
-          setIsTyping(true);
-          try {
-            const firstResponse = await callClaudeAPI(getSystemPrompt(), [
-              { role: 'user', content: '会話を開始してください。' }
-            ]);
-            setChatMessages([{ role: 'assistant', content: firstResponse }]);
-          } catch (error) {
-            console.error('Initial Chat Error:', error);
-            alert(error.message);
-          } finally {
-            setIsTyping(false);
-          }
-        };
-        initChat();
-      }
-    }, []);
-
+    // Scroll to bottom on updates
     useEffect(() => {
       if (scrollRef.current) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
       }
-    }, [chatMessages]);
+    }, [chatMessages, isTyping, error]);
+
+    // Initial API Call
+    useEffect(() => {
+      let isMounted = true;
+      if (chatMessages.length === 0) {
+        const initChat = async () => {
+          setIsTyping(true);
+          setError(null);
+          try {
+            const apiKey = localStorage.getItem('anthropic_api_key') || '';
+            const response = await fetch('http://localhost:3001/api/analyze-emotion', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey
+              },
+              body: JSON.stringify({
+                oshiName: oshi.name,
+                basicInfo: basicInfo?.answers || {},
+                action: editingItem.action,
+                context: editingItem.context,
+                feeling: editingItem.feeling,
+                messages: [] // Initial call
+              })
+            });
+
+            if (!response.ok) {
+              const err = await response.json().catch(() => ({}));
+              throw new Error(err.error || `Server Error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            // Expecting data.reply or data.content per user instruction/backend convention
+            const reply = data.reply || (data.content && data.content[0]?.text) || "（応答がありません）";
+
+            if (isMounted) {
+              setChatMessages([{ role: 'assistant', content: reply }]);
+            }
+          } catch (e) {
+            console.error(e);
+            if (isMounted) setError(e.message);
+          } finally {
+            if (isMounted) setIsTyping(false);
+          }
+        };
+        initChat();
+      }
+      return () => { isMounted = false; };
+    }, []);
 
     const handleSend = async () => {
       if (!inputValue.trim() || isTyping) return;
+
       const userMsg = { role: 'user', content: inputValue };
       const newHistory = [...chatMessages, userMsg];
 
       setChatMessages(newHistory);
       setInputValue('');
       setIsTyping(true);
+      setError(null);
 
       try {
-        const assistantResponse = await callClaudeAPI(getSystemPrompt(), newHistory);
-        setChatMessages([...newHistory, { role: 'assistant', content: assistantResponse }]);
-      } catch (error) {
-        console.error('Chat Error:', error);
-        alert('AI対話に失敗しました:\n' + error.message + '\n\nもう一度お試しください。');
+        const apiKey = localStorage.getItem('anthropic_api_key') || '';
+        const response = await fetch('http://localhost:3001/api/analyze-emotion', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey
+          },
+          body: JSON.stringify({
+            oshiName: oshi.name,
+            basicInfo: basicInfo?.answers || {},
+            action: editingItem.action,
+            context: editingItem.context,
+            feeling: editingItem.feeling,
+            messages: newHistory
+          })
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || `Server Error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const reply = data.reply || (data.content && data.content[0]?.text) || "（応答がありません）";
+
+        setChatMessages([...newHistory, { role: 'assistant', content: reply }]);
+      } catch (e) {
+        console.error(e);
+        setError(e.message);
+        // Keep the user message in history so they can try again or see what they sent
       } finally {
         setIsTyping(false);
+        // Focus input? 
       }
     };
 
     return (
-      <div className="flex flex-col h-[600px] border-2 border-pink-200 rounded-3xl overflow-hidden bg-white/90 backdrop-blur-sm shadow-2xl">
+      <div className="flex flex-col h-[600px] border-2 border-pink-200 rounded-3xl overflow-hidden bg-white/90 backdrop-blur-sm shadow-2xl animate-ethereal-fade">
         <header className="bg-gradient-to-r from-pink-50 p-4 border-b border-pink-200 flex justify-between items-center shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 flex items-center justify-center text-xl shadow-lg">✨</div>
             <div>
-              <p className="text-[10px] text-pink-600 font-bold uppercase tracking-widest">Recording Action for</p>
+              <p className="text-[10px] text-pink-600 font-bold uppercase tracking-widest">Counseling for</p>
               <h2 className="text-lg font-black text-gray-800 liquid-text leading-tight">{oshi.name}</h2>
             </div>
           </div>
-          <Button size="sm" className="bg-gradient-to-r from-pink-500 text-white">
-            会話を終了
+          <Button size="sm" className="bg-gradient-to-r from-pink-500 text-white shadow-lg shadow-pink-200" onClick={() => setCurrentView('reason-summary')}>
+            会話を終了してまとめる
           </Button>
         </header>
 
+        {/* Context Bar */}
+        <div className="bg-pink-50/80 backdrop-blur px-4 py-2 text-xs text-gray-600 border-b border-pink-100 flex items-center justify-center gap-2">
+          <span className="font-bold text-pink-500">Topic:</span>
+          <span className="truncate max-w-[200px]">{editingItem.action}</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] text-white ${editingItem.feeling === 'positive' ? 'bg-pink-400' : 'bg-aqua-400'}`}>
+            {editingItem.feeling === 'positive' ? 'プラス' : 'マイナス'}
+          </span>
+        </div>
+
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/30">
+          {/* Chat Messages */}
           {chatMessages.map((msg, idx) => (
-            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm ${msg.role === 'user'
-                ? 'bg-gradient-to-br from-pink-500 text-white rounded-tr-none'
+            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2 fade-in duration-300`}>
+              <div className={`max-w-[85%] p-3 rounded-2xl text-sm shadow-sm whitespace-pre-wrap leading-relaxed ${msg.role === 'user'
+                ? 'bg-gradient-to-br from-pink-500 to-pink-400 text-white rounded-tr-none shadow-pink-200'
                 : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
                 }`}>
                 {msg.content}
               </div>
             </div>
           ))}
+
+          {/* Typing Indicator */}
           {isTyping && (
-            <div className="flex justify-start">
-              <div className="bg-white p-3 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm flex gap-1">
-                <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce"></span>
-                <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce delay-75"></span>
-                <span className="w-1.5 h-1.5 bg-gray-300 rounded-full animate-bounce delay-150"></span>
+            <div className="flex justify-start animate-in fade-in">
+              <div className="bg-white p-3 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm flex items-center gap-2">
+                <span className="text-xs text-gray-400">AI思考中</span>
+                <div className="flex gap-1">
+                  <span className="w-1.5 h-1.5 bg-pink-400 rounded-full animate-bounce"></span>
+                  <span className="w-1.5 h-1.5 bg-pink-400 rounded-full animate-bounce delay-75"></span>
+                  <span className="w-1.5 h-1.5 bg-pink-400 rounded-full animate-bounce delay-150"></span>
+                </div>
               </div>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <div className="mx-auto max-w-xs bg-red-50 border border-red-200 text-red-600 p-3 rounded-lg text-center text-xs shadow-sm animate-in zoom-in-95">
+              <p className="font-bold mb-1">エラーが発生しました</p>
+              <p>{error}</p>
+              <Button size="sm" variant="outline" className="mt-2 h-7 text-xs bg-white" onClick={() => window.location.reload()}>
+                再読み込み
+              </Button>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {chatMessages.length === 0 && !isTyping && !error && (
+            <div className="text-center text-gray-400 mt-20">
+              <Sparkles className="w-8 h-8 mx-auto mb-2 text-pink-200" />
+              <p>AIカウンセラーに接続中...</p>
             </div>
           )}
         </div>
 
-        <div className="p-4 border-t border-gray-100 bg-white shadow-inner flex gap-2">
+        <div className="p-4 border-t border-gray-100 bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.05)] flex gap-2">
           <Input
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSend()}
-            placeholder="メッセージを入力..."
-            className="flex-1 border-gray-100 focus:border-pink-300 transition-all"
-            disabled={isTyping}
+            onKeyDown={e => e.key === 'Enter' && !isTyping && handleSend()}
+            placeholder={error ? "エラー発生中" : "メッセージを入力..."}
+            className="flex-1 border-gray-100 focus:border-pink-300 transition-all bg-gray-50/50 focus:bg-white"
+            disabled={isTyping || !!error}
           />
-          <Button onClick={handleSend} disabled={isTyping} className="bg-pink-400 hover:bg-pink-500">
+          <Button
+            onClick={handleSend}
+            disabled={isTyping || !!error || !inputValue.trim()}
+            className={`transition-all ${!inputValue.trim() ? 'bg-gray-300' : 'bg-gradient-to-r from-pink-400 to-pink-500 shadow-lg shadow-pink-200 hover:shadow-pink-300'}`}
+          >
             送信
           </Button>
         </div>
@@ -2896,7 +3016,7 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
 感情の種類: ${editingItem?.feeling === 'positive' ? 'プラス' : 'マイナス'}`;
 
           const apiKey = localStorage.getItem('anthropic_api_key') || 'YOUR_API_KEY_HERE';
-          const response = await fetch("https://api.anthropic.com/v1/messages", {
+          const response = await fetch("http://localhost:3001/analyze", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -3010,31 +3130,93 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
     const existingInfo = basicInfos.find(bi => bi.oshiId === selectedOshiId);
 
     const questions = [
-      { id: 'q1_name', label: '推しの名前は？（フルネーム・愛称）' },
-      { id: 'q2_activity', label: '推しは何をしている人？（職業・活動内容）' },
-      { id: 'q3_birthday', label: '推しの誕生日は？' },
-      { id: 'q4_visual', label: '推しの外見的特徴は？（髪型、身長、雰囲気など）' },
-      { id: 'q5_personality', label: '推しの性格を3つの言葉で表すと？' },
-      { id: 'q6_anniversary', label: '推しを好きになったのはいつ？' },
-      { id: 'q7_discovery', label: '推しを知ったきっかけは？' },
-      { id: 'q8_works', label: '推しの代表的な作品・活動は？' },
-      { id: 'q9_sns', label: '推しの公式SNSやサイトは？（任意）' },
-      { id: 'q10_catchphrase', label: '推しのキャッチフレーズを自分で作るなら？' }
+      { id: 'q1_name', label: '推しの名前は？', type: 'text', placeholder: 'フルネーム・愛称' },
+      { id: 'q2_activity', label: '活動内容は？', type: 'text', placeholder: 'アイドル、俳優、配信者など' },
+      { id: 'q3_birthday', label: '誕生日は？', type: 'date' },
+      {
+        id: 'q4_bloodType',
+        label: '血液型は？',
+        type: 'select',
+        options: [
+          { label: '選択してください', value: '' },
+          { label: 'A型', value: 'A' },
+          { label: 'B型', value: 'B' },
+          { label: 'O型', value: 'O' },
+          { label: 'AB型', value: 'AB' },
+          { label: '不明/非公開', value: 'unknown' }
+        ]
+      },
+      { id: 'q5_appearance', label: '外見的特徴は？', type: 'textarea', placeholder: '髪色、瞳の色、身長、服装の系統など' },
+      {
+        id: 'q6_personality',
+        label: '性格は？',
+        type: 'select',
+        options: [
+          { label: '選択してください', value: '' },
+          { label: 'クール・知的', value: 'cool' },
+          { label: '天真爛漫・元気', value: 'cheerful' },
+          { label: '可愛い・癒し系', value: 'cute' },
+          { label: '情熱的・熱血', value: 'passionate' },
+          { label: '王子様/お姫様', value: 'royal' },
+          { label: 'ミステリアス', value: 'mysterious' },
+          { label: '天然', value: 'natural' },
+          { label: 'その他', value: 'other' }
+        ]
+      },
+      { id: 'q7_startDate', label: '推し始めた時期は？', type: 'date' },
+      { id: 'q8_location', label: '活動拠点は？', type: 'text', placeholder: '東京、ネット、関西など' },
+      {
+        id: 'q9_color',
+        label: 'イメージカラーは？',
+        type: 'select',
+        options: [
+          { label: '選択してください', value: 'pink' }, // Default fallback
+          { label: '赤', value: 'red' },
+          { label: '青', value: 'blue' },
+          { label: '緑', value: 'aqua' },
+          { label: '黄', value: 'yellow' },
+          { label: '紫', value: 'lavender' },
+          { label: 'ピンク', value: 'pink' },
+          { label: 'オレンジ', value: 'orange' },
+          { label: '黒', value: 'gray' },
+          { label: '白', value: 'white' },
+          { label: '水色', value: 'cyan' }
+        ]
+      },
+      {
+        id: 'q10_icon',
+        label: 'イメージアイコンは？',
+        type: 'select',
+        options: [
+          { label: '選択してください', value: 'heart' },
+          { label: 'ハート', value: 'heart' },
+          { label: 'スター', value: 'star' },
+          { label: '音楽', value: 'music' },
+          { label: 'キラキラ', value: 'sparkles' },
+          { label: '笑顔', value: 'smile' },
+          { label: '王冠', value: 'crown' },
+          { label: '宝石', value: 'gem' },
+          { label: '雷', value: 'zap' }
+        ]
+      }
     ];
 
     const [qIndex, setQIndex] = useState(0);
-    const [answers, setAnswers] = useState(existingInfo?.answers || {
-      q1_name: '',
-      q2_activity: '',
-      q3_birthday: '',
-      q4_visual: '',
-      q5_personality: '',
-      q6_anniversary: '',
-      q7_discovery: '',
-      q8_works: '',
-      q9_sns: '',
-      q10_catchphrase: ''
-    });
+    const [answers, setAnswers] = useState(existingInfo?.answers || {});
+
+    // Initialize missing fields with empty strings
+    useEffect(() => {
+      const initialAnswers = { ...answers };
+      questions.forEach(q => {
+        if (initialAnswers[q.id] === undefined) {
+          initialAnswers[q.id] = '';
+        }
+      });
+      if (JSON.stringify(initialAnswers) !== JSON.stringify(answers)) {
+        setAnswers(initialAnswers);
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     if (!oshi) return <div>Oshi not found</div>;
 
@@ -3071,6 +3253,58 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
       setCurrentView('oshigotari-main');
     };
 
+    const renderInput = () => {
+      switch (currentQ.type) {
+        case 'text':
+          return (
+            <Input
+              value={answers[currentQ.id] || ''}
+              onChange={e => setAnswers({ ...answers, [currentQ.id]: e.target.value })}
+              placeholder={currentQ.placeholder}
+              className="text-lg py-6"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleNext();
+              }}
+            />
+          );
+        case 'textarea':
+          return (
+            <Textarea
+              value={answers[currentQ.id] || ''}
+              onChange={e => setAnswers({ ...answers, [currentQ.id]: e.target.value })}
+              placeholder={currentQ.placeholder}
+              className="text-lg min-h-[150px] border-pink-100 focus:border-pink-400 transition-colors"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.ctrlKey) handleNext();
+              }}
+            />
+          );
+        case 'date':
+          return (
+            <Input
+              type="date"
+              value={answers[currentQ.id] || ''}
+              onChange={e => setAnswers({ ...answers, [currentQ.id]: e.target.value })}
+              className="text-lg py-6 cursor-pointer"
+              autoFocus
+            />
+          );
+        case 'select':
+          return (
+            <Select
+              value={answers[currentQ.id] || ''}
+              onChange={e => setAnswers({ ...answers, [currentQ.id]: e.target.value })}
+              options={currentQ.options}
+              className="text-lg h-14"
+            />
+          );
+        default:
+          return null;
+      }
+    };
+
     return (
       <div className="max-w-2xl mx-auto space-y-8 animate-ethereal-fade">
         <header className="flex items-center gap-4">
@@ -3091,21 +3325,12 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
               <Progress value={progress} className="h-2" indicatorColor="bg-gradient-to-r from-pink-400" />
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               <h2 className="text-2xl font-bold text-gray-800 leading-tight">
                 {currentQ.label}
               </h2>
-              <Textarea
-                value={answers[currentQ.id]}
-                onChange={e => setAnswers({ ...answers, [currentQ.id]: e.target.value })}
-                placeholder="自由に語ってください..."
-                className="text-lg min-h-[150px] border-pink-100 focus:border-pink-400 transition-colors"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && e.ctrlKey) handleNext();
-                }}
-              />
-              <p className="text-xs text-gray-400">Ctrl + Enter で次へ</p>
+              {renderInput()}
+              {currentQ.type === 'textarea' && <p className="text-xs text-gray-400">Ctrl + Enter で次へ</p>}
             </div>
           </div>
 
@@ -3143,6 +3368,63 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
     const analysis = getAnalysis(selectedAnalysisId);
     if (!analysis) return <div>Analysis not found</div>;
 
+    // Goods Analysis Mode (identified by empty attraction and presence of recommendations)
+    if (!analysis.attraction && analysis.recommendations?.length > 0) {
+      return (
+        <div className="max-w-3xl mx-auto p-6 space-y-6 animate-ethereal-fade">
+          {/* ヘッダー */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setCurrentView('oshi-detail')}
+              className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-xl font-bold">AIグッズおすすめ分析結果</h1>
+          </div>
+
+          {/* おすすめグッズ一覧 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {analysis.recommendations.map((rec, idx) => (
+              <div
+                key={idx}
+                className="p-4 rounded-lg border shadow-sm hover:shadow-md transition bg-white"
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <h2 className="font-semibold text-gray-800">{rec.name}</h2>
+                  <span
+                    className={`px-2 py-1 text-xs font-bold rounded-full ${rec.priority === 'high'
+                      ? 'bg-red-100 text-red-700'
+                      : rec.priority === 'medium'
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-gray-100 text-gray-700'
+                      }`}
+                  >
+                    {rec.priority ? rec.priority.toUpperCase() : 'UNKNOWN'}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 mb-1">
+                  おすすめ度: <span className="font-bold">{rec.score}%</span>
+                </p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{rec.reason}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* フッター */}
+          <div className="mt-6 flex gap-4">
+            <button
+              onClick={() => setCurrentView('oshi-detail')}
+              className="flex-1 py-2 px-4 rounded-lg border bg-gray-50 hover:bg-gray-100 transition-colors"
+            >
+              戻る
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Standard Analysis View
     return (
       <div className="max-w-2xl mx-auto space-y-6 pb-20 animate-ethereal-fade">
         <div className="flex items-center space-x-2">
@@ -3185,8 +3467,8 @@ ${JSON.stringify(basicInfo?.answers || {}, null, 2)}
         </div>
 
         <div className="flex gap-4">
-          <Button className="flex-1" variant="outline" onClick={() => setCurrentView('oshi-detail')}>戻る</Button>
-          <Button className="flex-1" onClick={() => alert('再分析機能を実行します（シミュレーション）')}>再分析する</Button>
+          <Button className="flex-1 text-gray-800 border border-pink-500" variant="normal" onClick={() => setCurrentView('oshi-detail')}>戻る</Button>
+          <Button variant="normal" className="flex-1 rounded-xl transition-all duration-300 bg-pink-100 text-pink-500 bg-gradient-to-r from-pink-400 to-pink-500 text-white shadow-[0_6px_18px_rgba(255,0,100,0.3)] hover:shadow-[0_8px_22px_rgba(255,0,100,0.45)]" onClick={() => alert('再分析機能を実行します（シミュレーション）')}>再分析する</Button>
         </div>
       </div>
     );
